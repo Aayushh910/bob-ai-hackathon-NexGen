@@ -9,8 +9,8 @@
 # =============================================================================
 
 team:
-  name: "NexGen"                             # REQUIRED — e.g., "Orion Squad"
-  track: "AI"                            # REQUIRED — one of: AI | DevOps | Sustainability | Open
+  name: "NexGen"                            
+  track: "Defense & Aerospace"                            # REQUIRED — one of: AI | DevOps | Sustainability | Open
   lead:
     name: "Aayush Savaliya"                           # REQUIRED — e.g., "Alice Chen"
     email: "24aiml057@charusat.edu.in"                          # REQUIRED — e.g., "alice.chen@ibm.com"

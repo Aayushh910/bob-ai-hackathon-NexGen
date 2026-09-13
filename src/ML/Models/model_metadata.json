@@ -1,0 +1,1072 @@
+{
+  "models": {
+    "model_a_failure_probability": {
+      "algorithm": "Logistic Regression",
+      "target": "failure_within_50_hours",
+      "validation_metrics": {
+        "dataset": "Validation",
+        "precision": 0.53,
+        "recall": 0.7098,
+        "f1_score": 0.6069,
+        "roc_auc": 0.7761,
+        "confusion_matrix": [
+          [
+            1400,
+            618
+          ],
+          [
+            285,
+            697
+          ]
+        ],
+        "classification_report": {
+          "0": {
+            "precision": 0.8308605341246291,
+            "recall": 0.6937561942517344,
+            "f1-score": 0.7561436672967864,
+            "support": 2018.0
+          },
+          "1": {
+            "precision": 0.5300380228136882,
+            "recall": 0.709775967413442,
+            "f1-score": 0.6068785372224641,
+            "support": 982.0
+          },
+          "accuracy": 0.699,
+          "macro avg": {
+            "precision": 0.6804492784691587,
+            "recall": 0.7017660808325882,
+            "f1-score": 0.6815111022596252,
+            "support": 3000.0
+          },
+          "weighted avg": {
+            "precision": 0.7323912987555143,
+            "recall": 0.699,
+            "f1-score": 0.707284214719125,
+            "support": 3000.0
+          }
+        }
+      },
+      "test_metrics": {
+        "dataset": "Test",
+        "precision": 0.5245,
+        "recall": 0.6986,
+        "f1_score": 0.5991,
+        "roc_auc": 0.764,
+        "confusion_matrix": [
+          [
+            1396,
+            622
+          ],
+          [
+            296,
+            686
+          ]
+        ],
+        "classification_report": {
+          "0": {
+            "precision": 0.8250591016548463,
+            "recall": 0.6917740336967294,
+            "f1-score": 0.7525606469002696,
+            "support": 2018.0
+          },
+          "1": {
+            "precision": 0.5244648318042814,
+            "recall": 0.6985743380855397,
+            "f1-score": 0.5991266375545852,
+            "support": 982.0
+          },
+          "accuracy": 0.694,
+          "macro avg": {
+            "precision": 0.6747619667295639,
+            "recall": 0.6951741858911346,
+            "f1-score": 0.6758436422274274,
+            "support": 3000.0
+          },
+          "weighted avg": {
+            "precision": 0.7266645773237613,
+            "recall": 0.694,
+            "f1-score": 0.7023365811744489,
+            "support": 3000.0
+          }
+        }
+      }
+    },
+    "model_b_rul": {
+      "algorithm": "Gradient Boosting Regressor",
+      "target": "remaining_useful_life_hours",
+      "validation_metrics": {
+        "dataset": "Validation",
+        "mae_hours": 26.33,
+        "rmse_hours": 40.17,
+        "r2_score": 0.5036
+      },
+      "test_metrics": {
+        "dataset": "Test",
+        "mae_hours": 25.71,
+        "rmse_hours": 39.07,
+        "r2_score": 0.5104
+      }
+    },
+    "model_c_failure_mode": {
+      "algorithm": "Gradient Boosting (Multiclass)",
+      "target": "failure_type",
+      "classes": [
+        "Electrical",
+        "No Failure",
+        "Overheating",
+        "Overstrain",
+        "Pressure Drop",
+        "Tool Wear"
+      ],
+      "validation_metrics": {
+        "dataset": "Validation",
+        "classes": [
+          "Electrical",
+          "No Failure",
+          "Overheating",
+          "Overstrain",
+          "Pressure Drop",
+          "Tool Wear"
+        ],
+        "precision_weighted": 0.9993,
+        "recall_weighted": 0.9993,
+        "f1_score_weighted": 0.9993,
+        "precision_macro": 0.9999,
+        "recall_macro": 0.9967,
+        "f1_score_macro": 0.9983,
+        "confusion_matrix": [
+          [
+            71,
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            2464,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            39,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            79,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            177,
+            0
+          ],
+          [
+            0,
+            1,
+            0,
+            0,
+            0,
+            168
+          ]
+        ],
+        "classification_report": {
+          "Electrical": {
+            "precision": 1.0,
+            "recall": 0.9861111111111112,
+            "f1-score": 0.993006993006993,
+            "support": 72.0
+          },
+          "No Failure": {
+            "precision": 0.9991889699918897,
+            "recall": 1.0,
+            "f1-score": 0.9995943204868154,
+            "support": 2464.0
+          },
+          "Overheating": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 39.0
+          },
+          "Overstrain": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 79.0
+          },
+          "Pressure Drop": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 177.0
+          },
+          "Tool Wear": {
+            "precision": 1.0,
+            "recall": 0.9940828402366864,
+            "f1-score": 0.9970326409495549,
+            "support": 169.0
+          },
+          "accuracy": 0.9993333333333333,
+          "macro avg": {
+            "precision": 0.9998648283319816,
+            "recall": 0.9966989918912995,
+            "f1-score": 0.9982723257405605,
+            "support": 3000.0
+          },
+          "weighted avg": {
+            "precision": 0.9993338740200053,
+            "recall": 0.9993333333333333,
+            "f1-score": 0.9993318084988305,
+            "support": 3000.0
+          }
+        }
+      },
+      "test_metrics": {
+        "dataset": "Test",
+        "classes": [
+          "Electrical",
+          "No Failure",
+          "Overheating",
+          "Overstrain",
+          "Pressure Drop",
+          "Tool Wear"
+        ],
+        "precision_weighted": 0.9987,
+        "recall_weighted": 0.9987,
+        "f1_score_weighted": 0.9987,
+        "precision_macro": 0.9971,
+        "recall_macro": 0.9904,
+        "f1_score_macro": 0.9937,
+        "confusion_matrix": [
+          [
+            61,
+            3,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            2448,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            34,
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            0,
+            93,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            181,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            179
+          ]
+        ],
+        "classification_report": {
+          "Electrical": {
+            "precision": 0.9838709677419355,
+            "recall": 0.953125,
+            "f1-score": 0.9682539682539683,
+            "support": 64.0
+          },
+          "No Failure": {
+            "precision": 0.9987760097919217,
+            "recall": 1.0,
+            "f1-score": 0.9993876301285977,
+            "support": 2448.0
+          },
+          "Overheating": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 34.0
+          },
+          "Overstrain": {
+            "precision": 1.0,
+            "recall": 0.9893617021276596,
+            "f1-score": 0.9946524064171123,
+            "support": 94.0
+          },
+          "Pressure Drop": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 181.0
+          },
+          "Tool Wear": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 179.0
+          },
+          "accuracy": 0.9986666666666667,
+          "macro avg": {
+            "precision": 0.9971078295889763,
+            "recall": 0.99041445035461,
+            "f1-score": 0.9937156674666131,
+            "support": 3000.0
+          },
+          "weighted avg": {
+            "precision": 0.9986571379687028,
+            "recall": 0.9986666666666667,
+            "f1-score": 0.9986554995754232,
+            "support": 3000.0
+          }
+        }
+      }
+    }
+  },
+  "candidate_comparisons": {
+    "model_a_candidates": {
+      "Logistic Regression": {
+        "dataset": "Validation",
+        "precision": 0.53,
+        "recall": 0.7098,
+        "f1_score": 0.6069,
+        "roc_auc": 0.7761,
+        "confusion_matrix": [
+          [
+            1400,
+            618
+          ],
+          [
+            285,
+            697
+          ]
+        ],
+        "classification_report": {
+          "0": {
+            "precision": 0.8308605341246291,
+            "recall": 0.6937561942517344,
+            "f1-score": 0.7561436672967864,
+            "support": 2018.0
+          },
+          "1": {
+            "precision": 0.5300380228136882,
+            "recall": 0.709775967413442,
+            "f1-score": 0.6068785372224641,
+            "support": 982.0
+          },
+          "accuracy": 0.699,
+          "macro avg": {
+            "precision": 0.6804492784691587,
+            "recall": 0.7017660808325882,
+            "f1-score": 0.6815111022596252,
+            "support": 3000.0
+          },
+          "weighted avg": {
+            "precision": 0.7323912987555143,
+            "recall": 0.699,
+            "f1-score": 0.707284214719125,
+            "support": 3000.0
+          }
+        }
+      },
+      "Random Forest": {
+        "dataset": "Validation",
+        "precision": 0.5378,
+        "recall": 0.667,
+        "f1_score": 0.5955,
+        "roc_auc": 0.7717,
+        "confusion_matrix": [
+          [
+            1455,
+            563
+          ],
+          [
+            327,
+            655
+          ]
+        ],
+        "classification_report": {
+          "0": {
+            "precision": 0.8164983164983165,
+            "recall": 0.7210109018830525,
+            "f1-score": 0.7657894736842106,
+            "support": 2018.0
+          },
+          "1": {
+            "precision": 0.5377668308702791,
+            "recall": 0.6670061099796334,
+            "f1-score": 0.5954545454545455,
+            "support": 982.0
+          },
+          "accuracy": 0.7033333333333334,
+          "macro avg": {
+            "precision": 0.6771325736842978,
+            "recall": 0.694008505931343,
+            "f1-score": 0.680622009569378,
+            "support": 3000.0
+          },
+          "weighted avg": {
+            "precision": 0.7252602102027389,
+            "recall": 0.7033333333333334,
+            "f1-score": 0.7100331738437001,
+            "support": 3000.0
+          }
+        }
+      },
+      "Gradient Boosting": {
+        "dataset": "Validation",
+        "precision": 0.6226,
+        "recall": 0.4888,
+        "f1_score": 0.5476,
+        "roc_auc": 0.7691,
+        "confusion_matrix": [
+          [
+            1727,
+            291
+          ],
+          [
+            502,
+            480
+          ]
+        ],
+        "classification_report": {
+          "0": {
+            "precision": 0.7747868999551368,
+            "recall": 0.8557978196233895,
+            "f1-score": 0.813279962326348,
+            "support": 2018.0
+          },
+          "1": {
+            "precision": 0.622568093385214,
+            "recall": 0.48879837067209775,
+            "f1-score": 0.5476326297775242,
+            "support": 982.0
+          },
+          "accuracy": 0.7356666666666667,
+          "macro avg": {
+            "precision": 0.6986774966701754,
+            "recall": 0.6722980951477436,
+            "f1-score": 0.6804562960519361,
+            "support": 3000.0
+          },
+          "weighted avg": {
+            "precision": 0.7249606106045822,
+            "recall": 0.7356666666666667,
+            "f1-score": 0.726324735472033,
+            "support": 3000.0
+          }
+        }
+      },
+      "XGBoost": {
+        "dataset": "Validation",
+        "precision": 0.5664,
+        "recall": 0.5906,
+        "f1_score": 0.5783,
+        "roc_auc": 0.7689,
+        "confusion_matrix": [
+          [
+            1574,
+            444
+          ],
+          [
+            402,
+            580
+          ]
+        ],
+        "classification_report": {
+          "0": {
+            "precision": 0.7965587044534413,
+            "recall": 0.77998017839445,
+            "f1-score": 0.7881822734101152,
+            "support": 2018.0
+          },
+          "1": {
+            "precision": 0.56640625,
+            "recall": 0.5906313645621182,
+            "f1-score": 0.5782652043868395,
+            "support": 982.0
+          },
+          "accuracy": 0.718,
+          "macro avg": {
+            "precision": 0.6814824772267207,
+            "recall": 0.6853057714782841,
+            "f1-score": 0.6832237388984773,
+            "support": 3000.0
+          },
+          "weighted avg": {
+            "precision": 0.7212221343623483,
+            "recall": 0.718,
+            "f1-score": 0.719469419483163,
+            "support": 3000.0
+          }
+        }
+      }
+    },
+    "model_b_candidates": {
+      "Ridge Regression": {
+        "dataset": "Validation",
+        "mae_hours": 32.05,
+        "rmse_hours": 46.48,
+        "r2_score": 0.3356
+      },
+      "Random Forest Regressor": {
+        "dataset": "Validation",
+        "mae_hours": 26.18,
+        "rmse_hours": 40.39,
+        "r2_score": 0.4981
+      },
+      "Gradient Boosting Regressor": {
+        "dataset": "Validation",
+        "mae_hours": 26.33,
+        "rmse_hours": 40.17,
+        "r2_score": 0.5036
+      },
+      "XGBoost Regressor": {
+        "dataset": "Validation",
+        "mae_hours": 26.36,
+        "rmse_hours": 40.23,
+        "r2_score": 0.5021
+      }
+    },
+    "model_c_candidates": {
+      "Logistic Regression (Multinomial)": {
+        "dataset": "Validation",
+        "classes": [
+          "Electrical",
+          "No Failure",
+          "Overheating",
+          "Overstrain",
+          "Pressure Drop",
+          "Tool Wear"
+        ],
+        "precision_weighted": 0.9433,
+        "recall_weighted": 0.9057,
+        "f1_score_weighted": 0.9164,
+        "precision_macro": 0.6789,
+        "recall_macro": 0.9339,
+        "f1_score_macro": 0.7645,
+        "confusion_matrix": [
+          [
+            71,
+            0,
+            0,
+            0,
+            1,
+            0
+          ],
+          [
+            68,
+            2217,
+            31,
+            55,
+            87,
+            6
+          ],
+          [
+            1,
+            0,
+            36,
+            1,
+            0,
+            1
+          ],
+          [
+            0,
+            0,
+            2,
+            76,
+            1,
+            0
+          ],
+          [
+            4,
+            0,
+            7,
+            1,
+            163,
+            2
+          ],
+          [
+            0,
+            4,
+            8,
+            1,
+            2,
+            154
+          ]
+        ],
+        "classification_report": {
+          "Electrical": {
+            "precision": 0.4930555555555556,
+            "recall": 0.9861111111111112,
+            "f1-score": 0.6574074074074074,
+            "support": 72.0
+          },
+          "No Failure": {
+            "precision": 0.9981990094552003,
+            "recall": 0.8997564935064936,
+            "f1-score": 0.9464247598719316,
+            "support": 2464.0
+          },
+          "Overheating": {
+            "precision": 0.42857142857142855,
+            "recall": 0.9230769230769231,
+            "f1-score": 0.5853658536585366,
+            "support": 39.0
+          },
+          "Overstrain": {
+            "precision": 0.5671641791044776,
+            "recall": 0.9620253164556962,
+            "f1-score": 0.7136150234741784,
+            "support": 79.0
+          },
+          "Pressure Drop": {
+            "precision": 0.6417322834645669,
+            "recall": 0.9209039548022598,
+            "f1-score": 0.7563805104408353,
+            "support": 177.0
+          },
+          "Tool Wear": {
+            "precision": 0.9447852760736196,
+            "recall": 0.9112426035502958,
+            "f1-score": 0.927710843373494,
+            "support": 169.0
+          },
+          "accuracy": 0.9056666666666666,
+          "macro avg": {
+            "precision": 0.6789179553708081,
+            "recall": 0.9338527337504631,
+            "f1-score": 0.764484066371064,
+            "support": 3000.0
+          },
+          "weighted avg": {
+            "precision": 0.9432793136636078,
+            "recall": 0.9056666666666666,
+            "f1-score": 0.9163970932276881,
+            "support": 3000.0
+          }
+        }
+      },
+      "Random Forest (Multiclass)": {
+        "dataset": "Validation",
+        "classes": [
+          "Electrical",
+          "No Failure",
+          "Overheating",
+          "Overstrain",
+          "Pressure Drop",
+          "Tool Wear"
+        ],
+        "precision_weighted": 0.9971,
+        "recall_weighted": 0.997,
+        "f1_score_weighted": 0.997,
+        "precision_macro": 0.981,
+        "recall_macro": 0.9948,
+        "f1_score_macro": 0.9877,
+        "confusion_matrix": [
+          [
+            72,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            2460,
+            0,
+            0,
+            2,
+            2
+          ],
+          [
+            0,
+            0,
+            39,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            79,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            177,
+            0
+          ],
+          [
+            1,
+            0,
+            3,
+            0,
+            1,
+            164
+          ]
+        ],
+        "classification_report": {
+          "Electrical": {
+            "precision": 0.9863013698630136,
+            "recall": 1.0,
+            "f1-score": 0.993103448275862,
+            "support": 72.0
+          },
+          "No Failure": {
+            "precision": 1.0,
+            "recall": 0.9983766233766234,
+            "f1-score": 0.9991876523151909,
+            "support": 2464.0
+          },
+          "Overheating": {
+            "precision": 0.9285714285714286,
+            "recall": 1.0,
+            "f1-score": 0.9629629629629629,
+            "support": 39.0
+          },
+          "Overstrain": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 79.0
+          },
+          "Pressure Drop": {
+            "precision": 0.9833333333333333,
+            "recall": 1.0,
+            "f1-score": 0.9915966386554622,
+            "support": 177.0
+          },
+          "Tool Wear": {
+            "precision": 0.9879518072289156,
+            "recall": 0.9704142011834319,
+            "f1-score": 0.9791044776119403,
+            "support": 169.0
+          },
+          "accuracy": 0.997,
+          "macro avg": {
+            "precision": 0.9810263231661152,
+            "recall": 0.9947984707600092,
+            "f1-score": 0.987659196636903,
+            "support": 3000.0
+          },
+          "weighted avg": {
+            "precision": 0.9970806132553698,
+            "recall": 0.997,
+            "f1-score": 0.9970128802981609,
+            "support": 3000.0
+          }
+        }
+      },
+      "Gradient Boosting (Multiclass)": {
+        "dataset": "Validation",
+        "classes": [
+          "Electrical",
+          "No Failure",
+          "Overheating",
+          "Overstrain",
+          "Pressure Drop",
+          "Tool Wear"
+        ],
+        "precision_weighted": 0.9993,
+        "recall_weighted": 0.9993,
+        "f1_score_weighted": 0.9993,
+        "precision_macro": 0.9999,
+        "recall_macro": 0.9967,
+        "f1_score_macro": 0.9983,
+        "confusion_matrix": [
+          [
+            71,
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            2464,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            39,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            79,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            177,
+            0
+          ],
+          [
+            0,
+            1,
+            0,
+            0,
+            0,
+            168
+          ]
+        ],
+        "classification_report": {
+          "Electrical": {
+            "precision": 1.0,
+            "recall": 0.9861111111111112,
+            "f1-score": 0.993006993006993,
+            "support": 72.0
+          },
+          "No Failure": {
+            "precision": 0.9991889699918897,
+            "recall": 1.0,
+            "f1-score": 0.9995943204868154,
+            "support": 2464.0
+          },
+          "Overheating": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 39.0
+          },
+          "Overstrain": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 79.0
+          },
+          "Pressure Drop": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 177.0
+          },
+          "Tool Wear": {
+            "precision": 1.0,
+            "recall": 0.9940828402366864,
+            "f1-score": 0.9970326409495549,
+            "support": 169.0
+          },
+          "accuracy": 0.9993333333333333,
+          "macro avg": {
+            "precision": 0.9998648283319816,
+            "recall": 0.9966989918912995,
+            "f1-score": 0.9982723257405605,
+            "support": 3000.0
+          },
+          "weighted avg": {
+            "precision": 0.9993338740200053,
+            "recall": 0.9993333333333333,
+            "f1-score": 0.9993318084988305,
+            "support": 3000.0
+          }
+        }
+      },
+      "XGBoost (Multiclass)": {
+        "dataset": "Validation",
+        "classes": [
+          "Electrical",
+          "No Failure",
+          "Overheating",
+          "Overstrain",
+          "Pressure Drop",
+          "Tool Wear"
+        ],
+        "precision_weighted": 0.995,
+        "recall_weighted": 0.995,
+        "f1_score_weighted": 0.9949,
+        "precision_macro": 0.9854,
+        "recall_macro": 0.9681,
+        "f1_score_macro": 0.976,
+        "confusion_matrix": [
+          [
+            68,
+            4,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            2,
+            2459,
+            0,
+            1,
+            2,
+            0
+          ],
+          [
+            1,
+            3,
+            34,
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            79,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            0,
+            0,
+            176,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            169
+          ]
+        ],
+        "classification_report": {
+          "Electrical": {
+            "precision": 0.9444444444444444,
+            "recall": 0.9444444444444444,
+            "f1-score": 0.9444444444444444,
+            "support": 72.0
+          },
+          "No Failure": {
+            "precision": 0.9971613949716139,
+            "recall": 0.9979707792207793,
+            "f1-score": 0.9975659229208925,
+            "support": 2464.0
+          },
+          "Overheating": {
+            "precision": 1.0,
+            "recall": 0.8717948717948718,
+            "f1-score": 0.9315068493150684,
+            "support": 39.0
+          },
+          "Overstrain": {
+            "precision": 0.9875,
+            "recall": 1.0,
+            "f1-score": 0.9937106918238994,
+            "support": 79.0
+          },
+          "Pressure Drop": {
+            "precision": 0.9832402234636871,
+            "recall": 0.9943502824858758,
+            "f1-score": 0.9887640449438202,
+            "support": 177.0
+          },
+          "Tool Wear": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 169.0
+          },
+          "accuracy": 0.995,
+          "macro avg": {
+            "precision": 0.9853910104799576,
+            "recall": 0.9680933963243286,
+            "f1-score": 0.9759986589080208,
+            "support": 3000.0
+          },
+          "weighted avg": {
+            "precision": 0.9950172322543762,
+            "recall": 0.995,
+            "f1-score": 0.9949485272698371,
+            "support": 3000.0
+          }
+        }
+      }
+    }
+  },
+  "feature_schema": {
+    "canonical_features": [
+      "component_type",
+      "temperature",
+      "vibration",
+      "oil_pressure",
+      "fuel_pressure",
+      "rpm",
+      "hydraulic_pressure",
+      "battery_voltage",
+      "coolant_temperature",
+      "operating_hours",
+      "load_percentage",
+      "ambient_temperature",
+      "temperature_change",
+      "vibration_change",
+      "oil_pressure_change",
+      "rolling_temperature_mean",
+      "rolling_vibration_mean",
+      "rolling_pressure_mean",
+      "previous_failures",
+      "hours_since_last_maintenance",
+      "anomaly_label"
+    ],
+    "feature_count": 21
+  },
+  "dataset_summary": {
+    "total_records": 20000,
+    "train_records": 14000,
+    "val_records": 3000,
+    "test_records": 3000
+  }
+}
