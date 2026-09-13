@@ -1,11 +1,8 @@
 {
   "module": "MissionGuard Anomaly Detection",
   "version": "1.0.0",
-  "algorithm": "IsolationForest",
+  "algorithm": "RandomForestClassifier",
   "n_estimators": 150,
-  "contamination": 0.354,
-  "s_min": -0.080546,
-  "s_max": 0.227913,
   "score_threshold": 0.5,
   "attribution_threshold_sigma": 1.8,
   "features": [
