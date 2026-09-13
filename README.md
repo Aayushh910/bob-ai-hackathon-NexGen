@@ -1,6 +1,4 @@
-# 🚀 [Your Project Title Here]
-
-> ⚠️ **Replace everything in `[ ]` brackets with your actual content before submission.**
+# 🚀 SentinelAI - Mission Readiness & Predictive Maintenance Copilot
 
 ---
 
@@ -8,10 +6,10 @@
 
 | Field | Value |
 |---|---|
-| **Team Name** | [Your Team Name] |
-| **Track** | [AI / DevOps / Sustainability / Open] |
-| **Team Lead** | [Name] — [email@ibm.com] |
-| **Members** | [Name 1], [Name 2], [Name 3] |
+| **Team Name** | NexGen |
+| **Track** | Defense & Aerospace |
+| **Team Lead** | Aayush Savaliya — 24aiml057@charusat.edu.in |
+| **Members** | Jeel Pipaliya, Krish Singh, Jevil Savani |
 
 ---
 
@@ -19,7 +17,7 @@
 
 > In 2–3 sentences: What problem does your project solve? Who experiences this problem?
 
-[Describe the real-world problem your project addresses. Be specific about who the user is and what pain point they face.]
+Military maintenance teams struggle to accurately determine whether aircraft, vehicles, and critical equipment are truly mission-ready because maintenance decisions often rely on fixed schedules and manually analyzed sensor and service data. Our project helps maintenance and operations teams detect early signs of component failure, understand readiness risks, and prioritize maintenance before unexpected failures impact mission availability.
 
 ---
 
@@ -27,17 +25,17 @@
 
 > In 2–3 sentences: What did you build? How does it solve the problem above?
 
-[Describe your solution clearly. Explain the core mechanism — what makes it work.]
+MissionGuard is an AI-powered copilot that ingests real-time sensor telemetry and historical maintenance/service records to assess asset mission readiness, detect anomalies, and predict potential component failures. It combines predictive analytics with IBM watsonx.ai and a LangChain-based reasoning layer to explain risks in natural language and generate a prioritized, actionable maintenance plan before failures affect mission availability.
 
 ---
 
 ## ✨ Key Features
 
-- **Feature 1:** [Brief description — e.g., "Real-time anomaly detection using watsonx.ai"]
-- **Feature 2:** [Brief description]
-- **Feature 3:** [Brief description]
-- **Feature 4:** [Optional]
-- **Feature 5:** [Optional]
+- **Real-Time Sensor Anomaly Detection**  — Detect abnormal patterns in temperature, vibration, pressure, RPM, and other telemetry before they become critical.
+- **Predictive Failure & Risk Analysis**  — Estimate which components are most likely to fail and assign a failure-risk score based on sensor trends and historical data.
+- **Real-Time Sensor Anomaly Detection** — Automatically classify assets as Ready, At Risk, or Not Mission Ready based on component health and predicted failures.
+- **AI-Powered Explainability** — Explain why an asset is at risk, identify the contributing sensor readings and historical maintenance patterns, and present the findings in clear natural language.
+- **Prioritized Maintenance Recommendations** — Generate a ranked maintenance plan based on failure risk, mission impact, urgency, and component condition.
 
 ---
 
@@ -45,11 +43,11 @@
 
 | Category | Technologies |
 |---|---|
-| **Languages** | [e.g., Python, TypeScript] |
-| **Frameworks** | [e.g., FastAPI, React] |
-| **IBM Technologies** | [e.g., watsonx.ai, IBM Bob, IBM Cloud] |
-| **Databases** | [e.g., PostgreSQL, Redis] |
-| **Other** | [e.g., Docker, GitHub Actions] |
+| **Languages** | Python, JavaScript |
+| **Frameworks** | FastAPI, React, LangChain |
+| **IBM Technologies** | IBM watsonx.ai, IBM Bob, IBM Cloud |
+| **Databases** | PostgreSQL |
+| **Other** | Docker, Git, GitHub, REST APIs |
 
 ---
 
@@ -77,18 +75,25 @@
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/[your-repo].git
-cd [your-repo]
+git clone https://github.com/Aayushh910/bob-ai-hackathon-NexGen.git
+cd bob-ai-hackathon-NexGen
 
 # 2. Install dependencies
-[your install command here]
+# Backend
+cd src/backend && pip install -r requirements.txt
+# Frontend
+cd ../frontend && npm install
 
 # 3. Configure environment
+cd ../backend
 cp .env.example .env
 # Edit .env with your values
 
 # 4. Run the project
-[your run command here]
+# Terminal 1 (Backend):
+cd src/backend && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# Terminal 2 (Frontend):
+cd src/frontend && npm run dev
 ```
 
 ---
@@ -108,9 +113,7 @@ cp .env.example .env
 
 > Be honest — judges appreciate transparency over overclaiming.
 
-- [Limitation 1: e.g., "Authentication is mocked — not production-ready"]
-- [Limitation 2: e.g., "Only tested on Chrome"]
-- [Limitation 3: e.g., "Feature X is scaffolded but not fully implemented"]
+- Synthetic/limited sensor data — The prototype uses simulated or publicly available sensor data rather than live military platform telemetry, so real-world performance may differ. Real predictive-maintenance datasets can also have limited failure examples
 
 ---
 
