@@ -42,7 +42,7 @@ export default function Navbar({ activeTab, onTabChange }) {
       </nav>
 
       <div className="navbar-actions">
-        <span className="env-pill">Phase 7: Production Ready</span>
+        <span className="env-pill">System Online</span>
       </div>
     </header>
   );
