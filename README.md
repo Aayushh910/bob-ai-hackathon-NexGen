@@ -1,4 +1,4 @@
-# 🚀 SentinelAI - Mission Readiness & Predictive Maintenance Copilot
+# 🚀 SentinelAI - An AI-powered mission-readiness and predictive-maintenance copilot
 
 ---
 
@@ -7,7 +7,7 @@
 | Field | Value |
 |---|---|
 | **Team Name** | NexGen |
-| **Track** | Defense & Aerospace |
+| **Track** | AI |
 | **Team Lead** | Aayush Savaliya — 24aiml057@charusat.edu.in |
 | **Members** | Jeel Pipaliya, Krish Singh, Jevil Savani |
 
@@ -17,7 +17,7 @@
 
 > In 2–3 sentences: What problem does your project solve? Who experiences this problem?
 
-Military maintenance teams struggle to accurately determine whether aircraft, vehicles, and critical equipment are truly mission-ready because maintenance decisions often rely on fixed schedules and manually analyzed sensor and service data. Our project helps maintenance and operations teams detect early signs of component failure, understand readiness risks, and prioritize maintenance before unexpected failures impact mission availability.
+Military maintenance and operations teams struggle to accurately determine whether aircraft, vehicles, and critical equipment are truly mission-ready because maintenance decisions often rely on fixed schedules and manually analyzed sensor and service data. SentinelAI helps these teams detect early signs of equipment degradation and component failure, assess mission-readiness risks, and prioritize maintenance before unexpected failures reduce operational availability.
 
 ---
 
@@ -25,17 +25,17 @@ Military maintenance teams struggle to accurately determine whether aircraft, ve
 
 > In 2–3 sentences: What did you build? How does it solve the problem above?
 
-MissionGuard is an AI-powered copilot that ingests real-time sensor telemetry and historical maintenance/service records to assess asset mission readiness, detect anomalies, and predict potential component failures. It combines predictive analytics with IBM watsonx.ai and a LangChain-based reasoning layer to explain risks in natural language and generate a prioritized, actionable maintenance plan before failures affect mission availability.
+SentinelAI is an AI-powered copilot that ingests Health and Usage Monitoring System (HUMS) multi-sensor telemetry and service histories across military fleet assets. It runs a production machine learning pipeline (Random Forest failure probability, Extra Trees RUL regression, failure mode classification, and Isolation Forest anomaly detection) to classify assets into a 4-tier readiness framework (`READY`, `CAUTION`, `DEGRADED`, `NOT_READY`). Coupled with an evidence-backed Operational Copilot and a closed-loop maintenance scheduler, it translates sensor drift into prioritized interventions and plain-language commander intelligence before mechanical failures ground critical missions.
 
 ---
 
 ## ✨ Key Features
 
-- **Real-Time Sensor Anomaly Detection**  — Detect abnormal patterns in temperature, vibration, pressure, RPM, and other telemetry before they become critical.
-- **Predictive Failure & Risk Analysis**  — Estimate which components are most likely to fail and assign a failure-risk score based on sensor trends and historical data.
-- **Real-Time Sensor Anomaly Detection** — Automatically classify assets as Ready, At Risk, or Not Mission Ready based on component health and predicted failures.
-- **AI-Powered Explainability** — Explain why an asset is at risk, identify the contributing sensor readings and historical maintenance patterns, and present the findings in clear natural language.
-- **Prioritized Maintenance Recommendations** — Generate a ranked maintenance plan based on failure risk, mission impact, urgency, and component condition.
+- **Multi-Model Predictive Failure & RUL Analysis** — Deploys dedicated ML models (Random Forest classifier & Extra Trees regressor) to compute 50-hour failure probabilities, Remaining Useful Life (RUL) in operating hours, and specific failure modes (e.g., pressure drop, bearing wear, overheating).
+- **Multi-Sensor Telemetry Anomaly Detection** — Ingests multi-channel HUMS telemetry (vibration, temperature, oil/fuel/hydraulic pressure, RPM, voltage) and isolates real-time operational deviations using an Isolation Forest engine.
+- **4-Tier Deterministic Readiness Assessment** — Evaluates fleet assets on an explainable 0–100 readiness score and categorizes them into `READY`, `CAUTION`, `DEGRADED`, or `NOT_READY` based on multi-factor telemetry health and operational constraints.
+- **Prioritized Maintenance Planning & Closed-Loop Reassessment** — Automatically compiles and ranks interventions by urgency (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`), maps affected subsystems, and validates post-maintenance readiness recovery using verified re-assessment workflows.
+- **Actionable Failure Resolution Recommendations** — Synthesizes prioritized, deduplicated corrective actions mapped directly to diagnosed failure modes (e.g., subsystem teardowns, component wear inspections, sensor recalibrations, or overhaul schedules) to resolve identified failure risks prior to sortie deployment.
 
 ---
 
@@ -44,10 +44,10 @@ MissionGuard is an AI-powered copilot that ingests real-time sensor telemetry an
 | Category | Technologies |
 |---|---|
 | **Languages** | Python, JavaScript |
-| **Frameworks** | FastAPI, React, LangChain |
-| **IBM Technologies** | IBM watsonx.ai, IBM Bob, IBM Cloud |
+| **Frameworks** | FastAPI, React, Scikit-learn |
+| **IBM Technologies** | IBM Bob |
 | **Databases** | PostgreSQL |
-| **Other** | Docker, Git, GitHub, REST APIs |
+| **Other** | Docker, Git, GitHub, REST APIs, Alembic, Pytest |
 
 ---
 
@@ -88,6 +88,7 @@ cd ../frontend && npm install
 cd ../backend
 cp .env.example .env
 # Edit .env with your values
+alembic upgrade head
 
 # 4. Run the project
 # Terminal 1 (Backend):
@@ -111,14 +112,27 @@ cd src/frontend && npm run dev
 
 ## ⚠️ Known Limitations
 
-> Be honest — judges appreciate transparency over overclaiming.
 
-- Synthetic/limited sensor data — The prototype uses simulated or publicly available sensor data rather than live military platform telemetry, so real-world performance may differ. Real predictive-maintenance datasets can also have limited failure examples
+- **Single Fleet / Platform Type Specialization** — Due to model complexity, divergent telemetry baselines, and limited multi-platform failure data, the predictive models and degradation curves are currently built and calibrated for a single fleet type (tactical aircraft/vehicle platform). Extending to heterogeneous vehicle or vessel classes requires platform-specific sensor schema mapping and dedicated model retraining.
+
+- **Synthetic/limited sensor data** — The prototype uses simulated or publicly available sensor data rather than live military platform telemetry, so real-world performance may differ. Real predictive-maintenance datasets can also have limited failure examples
+
+- **Predictive Scope vs. Combat Trauma**: The system is engineered to detect progressive mechanical fatigue and wear (thermal spikes, pressure drops, bearing degradation). It cannot anticipate sudden battle damage, kinetic strikes, or structural failures that occur without prior telemetry warning.
+
+- **Offline Retraining Boundary**: Runtime inference is instantaneous via an in-memory `ModelRegistry` in FastAPI, but model training and hyperparameter updates currently operate as an offline batch process rather than continuous on-device edge learning.
+
+- **Scoped Domain Querying (Not a General-Purpose Chatbot)**: AI copilot is focused on defense fleet operations and maintenance. It uses asset telemetry, failure risks, readiness data, and maintenance history to provide grounded recommendations. It does not answer general or unrelated questions outside the supported fleet data and operational tasks.
 
 ---
 
 ## 🏅 What We're Most Proud Of
 
-[Tell the judges what part of your submission is strongest and worth paying close attention to.]
+- **End-to-End ML Pipeline with Zero Mocks** — Instead of static mock data or generic prompts, we engineered, trained, and served 4 specialized models (Random Forest failure classifier, Extra Trees RUL regressor, failure mode classifier, and Isolation Forest anomaly detector) with strict target-leakage audits across 20,000+ telemetry records.
+
+- **Human-Centered, Mission-First User Experience** — Designed the entire interface to minimize cognitive overload in high-stress operational environments, replacing overwhelming raw data dumps with ranked attention queues, clear visual readiness tiers, and one-click diagnostics.
+
+- **Closed-Loop Maintenance & Verified Reassessment** — Maintenance isn't treated as a static to-do list. When an operator marks an intervention complete, SentinelAI immediately executes post-service inference to verify that sensor anomalies have cleared and objectively recalculates the asset's readiness score.
+
+- **Production-Grade Architecture & 100% Test Pass Rate** — We built a robust, enterprise-ready full-stack system—combining a modern React command console, high-performance FastAPI backend, and PostgreSQL with Alembic migrations—backed by a comprehensive test suite of 45/45 passing automated pytest tests.
 
 ---

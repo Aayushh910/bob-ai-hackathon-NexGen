@@ -1,8 +1,3 @@
-# =============================================================================
-# HACKATHON SUBMISSION — .gitignore
-# =============================================================================
-# IMPORTANT: Never commit secrets, credentials, or large binary files.
-
 # ── Secrets & Environment ─────────────────────────────────────────────────────
 .env
 .env.local
@@ -57,7 +52,7 @@ vendor/
 
 # ── Rust ──────────────────────────────────────────────────────────────────────
 target/
-Cargo.lock  # remove this line if you want to commit lock file (recommended for apps)
+Cargo.lock  
 
 # ── macOS ─────────────────────────────────────────────────────────────────────
 .DS_Store
@@ -76,11 +71,6 @@ desktop.ini
 *.sublime-project
 *.sublime-workspace
 
-# ── Large Media Files (use demo-video-link.txt instead) ───────────────────────
-demo/*.mp4
-demo/*.mov
-demo/*.avi
-demo/*.mkv
 
 # ── Docker volumes / local data ───────────────────────────────────────────────
 data/
