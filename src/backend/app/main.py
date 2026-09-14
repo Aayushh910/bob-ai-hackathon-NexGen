@@ -59,8 +59,9 @@ app.add_middleware(
 # Mount API v1 Routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-@app.get(
+@app.api_route(
     "/",
+    methods=["GET", "HEAD"],
     tags=["Root"],
     summary="Root Service Status",
     response_description="Service information and quick navigation links"
@@ -77,8 +78,9 @@ def root():
         "api_v1": settings.API_V1_STR
     }
 
-@app.get(
+@app.api_route(
     "/health",
+    methods=["GET", "HEAD"],
     tags=["Health"],
     summary="System & Database Health Check",
     response_description="Operational status and PostgreSQL database connection state"

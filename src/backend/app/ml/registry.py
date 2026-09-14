@@ -5,6 +5,10 @@ from typing import Any, Dict, List, Optional
 import joblib
 
 import os
+import warnings
+from sklearn.exceptions import InconsistentVersionWarning
+
+warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
 
 logger = logging.getLogger("sentinelai.ml.registry")
 
