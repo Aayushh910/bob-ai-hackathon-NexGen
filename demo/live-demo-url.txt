@@ -1,4 +1,4 @@
-NOT DEPLOYED
+https://sentinel-ai-ibm-bob.vercel.app/
 
 Replace the URL above with a link to your live/deployed demo.
 

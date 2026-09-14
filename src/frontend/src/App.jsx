@@ -15,19 +15,98 @@ import LoginPage from './components/landing/LoginPage';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { getSystemHealth } from './api/health';
 
-export default function App() {
-  const [page, setPage] = useState('landing'); // 'landing' | 'login' | 'dashboard'
-  const [user, setUser] = useState({
+const VALID_TABS = [
+  'overview',
+  'fleet',
+  'health',
+  'predictions',
+  'alerts',
+  'maintenance',
+  'planning',
+  'analytics',
+  'reports',
+  'readiness'
+];
+
+const getInitialPage = () => {
+  const hash = window.location.hash.replace(/^#/, '');
+  if (VALID_TABS.includes(hash)) {
+    return 'dashboard';
+  }
+  return localStorage.getItem('sentinel_page') || 'landing';
+};
+
+const getInitialTab = () => {
+  const hash = window.location.hash.replace(/^#/, '');
+  if (VALID_TABS.includes(hash)) {
+    return hash;
+  }
+  const saved = localStorage.getItem('sentinel_tab');
+  if (saved && VALID_TABS.includes(saved)) {
+    return saved;
+  }
+  return 'overview';
+};
+
+const getInitialUser = () => {
+  try {
+    const saved = localStorage.getItem('sentinel_user');
+    if (saved) return JSON.parse(saved);
+  } catch (e) {
+    console.warn('Failed to parse saved user:', e);
+  }
+  return {
     name: 'Major Alex Vance',
     role: 'Operations Commander',
     clearance: 'TOP SECRET / SCI'
-  });
-  const [activeTab, setActiveTab] = useState('overview');
+  };
+};
+
+export default function App() {
+  const [page, setPage] = useState(getInitialPage); // 'landing' | 'login' | 'dashboard'
+  const [user, setUser] = useState(getInitialUser);
+  const [activeTab, setActiveTab] = useState(getInitialTab);
+
   // Keep-alive cache: track visited tabs so they mount lazily on first access, but stay mounted in memory
-  const [visitedTabs, setVisitedTabs] = useState(() => new Set(['overview']));
+  const [visitedTabs, setVisitedTabs] = useState(() => new Set(['overview', getInitialTab()]));
   const [healthData, setHealthData] = useState(null);
   const [isLoadingHealth, setIsLoadingHealth] = useState(true);
   const [systemError, setSystemError] = useState(null);
+
+  // Persist page state to localStorage
+  useEffect(() => {
+    localStorage.setItem('sentinel_page', page);
+  }, [page]);
+
+  // Persist user to localStorage
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('sentinel_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('sentinel_user');
+    }
+  }, [user]);
+
+  // Persist activeTab and sync with URL hash
+  useEffect(() => {
+    if (page === 'dashboard') {
+      localStorage.setItem('sentinel_tab', activeTab);
+      window.history.replaceState(null, '', `#${activeTab}`);
+    }
+  }, [activeTab, page]);
+
+  // Handle browser back/forward buttons with hash
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace(/^#/, '');
+      if (VALID_TABS.includes(hash)) {
+        setActiveTab(hash);
+        setPage('dashboard');
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   useEffect(() => {
     setVisitedTabs((prev) => {
@@ -59,15 +138,20 @@ export default function App() {
   }, [fetchHealth]);
 
   const handleLogin = (userData) => {
-    setUser(userData || {
+    const loggedUser = userData || {
       name: 'Commander',
       role: 'Operations Command',
       clearance: 'SECRET'
-    });
+    };
+    setUser(loggedUser);
     setPage('dashboard');
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('sentinel_page');
+    localStorage.removeItem('sentinel_user');
+    localStorage.removeItem('sentinel_tab');
+    window.history.replaceState(null, '', window.location.pathname);
     setUser(null);
     setPage('landing');
   };

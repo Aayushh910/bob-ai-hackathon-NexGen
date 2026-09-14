@@ -4,9 +4,32 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 import joblib
 
+import os
+
 logger = logging.getLogger("sentinelai.ml.registry")
 
-ML_MODELS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "ML" / "Models"
+def _resolve_ml_models_dir() -> Path:
+    """Discovers the ML Models directory across various deployment layouts."""
+    env_dir = os.environ.get("ML_MODELS_DIR")
+    if env_dir and Path(env_dir).exists():
+        return Path(env_dir)
+
+    base = Path(__file__).resolve()
+    candidates = [
+        base.parent.parent.parent.parent / "ML" / "Models",       # src/ML/Models
+        base.parent.parent.parent.parent / "src" / "ML" / "Models",
+        base.parent.parent.parent / "ML" / "Models",
+        Path.cwd() / "ML" / "Models",
+        Path.cwd() / "src" / "ML" / "Models",
+        base.parent / "models",
+    ]
+    for cand in candidates:
+        if cand.exists() and (cand / "anomaly_config.json").exists():
+            return cand
+
+    return base.parent.parent.parent.parent / "ML" / "Models"
+
+ML_MODELS_DIR = _resolve_ml_models_dir()
 
 class ModelRegistry:
     """

@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: sentinelai-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt && alembic upgrade head
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: APP_NAME
+        value: SentinelAI
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        value: "https://sentinel-ai-ibm-bob.vercel.app"
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGIN_REGEX
+        value: "https://.*\\.vercel\\.app"
+      - key: CORS_ORIGINS
+        value: "http://localhost:3000,http://localhost:5173,https://sentinel-ai-ibm-bob.vercel.app"
