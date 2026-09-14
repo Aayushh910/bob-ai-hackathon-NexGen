@@ -12,6 +12,9 @@ export class ApiError extends Error {
   }
 }
 
+// In-flight GET request deduplication map to prevent identical concurrent backend calls
+const inFlightRequests = new Map();
+
 /**
  * Centralized HTTP client using standard fetch with timeout and error wrapping.
  * @param {string} endpoint - Relative API endpoint
@@ -20,13 +23,21 @@ export class ApiError extends Error {
  */
 export async function apiClient(endpoint, options = {}) {
   const url = `${API_CONFIG.BASE_URL}${endpoint}`;
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT_MS);
+  const isGet = !options.method || options.method.toUpperCase() === 'GET';
 
-  const defaultHeaders = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  };
+  // Return existing in-flight request if an identical GET is already resolving
+  if (isGet && inFlightRequests.has(url)) {
+    return inFlightRequests.get(url);
+  }
+
+  const executeRequest = async () => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT_MS);
+
+    const defaultHeaders = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
 
   try {
     const response = await fetch(url, {
@@ -54,16 +65,27 @@ export async function apiClient(endpoint, options = {}) {
     }
 
     return data;
-  } catch (error) {
-    clearTimeout(id);
-    if (error.name === 'AbortError') {
-      throw new ApiError(`Request timeout after ${API_CONFIG.TIMEOUT_MS}ms`, 408);
+    } catch (error) {
+      clearTimeout(id);
+      if (error.name === 'AbortError') {
+        throw new ApiError(`Request timeout after ${API_CONFIG.TIMEOUT_MS}ms`, 408);
+      }
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(error.message || 'Network connection failed', 0, error);
     }
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw new ApiError(error.message || 'Network connection failed', 0, error);
+  };
+
+  if (isGet) {
+    const promise = executeRequest().finally(() => {
+      inFlightRequests.delete(url);
+    });
+    inFlightRequests.set(url, promise);
+    return promise;
   }
+
+  return executeRequest();
 }
 
 export default apiClient;

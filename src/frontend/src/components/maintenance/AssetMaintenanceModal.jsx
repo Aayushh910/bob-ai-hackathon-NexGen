@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Wrench,
   AlertTriangle,
-  AlertOctagon,
-  CheckCircle2,
   Clock,
   Cpu,
   RefreshCw,
@@ -12,17 +10,15 @@ import {
   Sparkles,
   ClipboardList,
   ShieldCheck,
-  ShieldAlert,
   ArrowRight
 } from 'lucide-react';
 import {
   getAssetMaintenanceDetail,
-  generateInterventionPlan,
   completeMaintenance
 } from '../../api/maintenance';
-import LoadingSpinner from '../common/LoadingSpinner';
+import { LoadingSpinner, LoadingState } from '../common/UIComponents';
 
-export default function AssetMaintenanceModal({ assetId, onClose, onMaintenanceCompleted }) {
+export default function AssetMaintenanceModal({ assetId, onClose, onMaintenanceCompleted, onSuccess }) {
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState(null);
@@ -35,18 +31,14 @@ export default function AssetMaintenanceModal({ assetId, onClose, onMaintenanceC
   const [submitting, setSubmitting] = useState(false);
   const [completionResult, setCompletionResult] = useState(null);
 
-  useEffect(() => {
+  const loadAssetDetail = useCallback(async () => {
     if (!assetId) return;
-    loadAssetDetail();
-  }, [assetId]);
-
-  const loadAssetDetail = async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await getAssetMaintenanceDetail(assetId);
       setDetail(data);
-      if (data.intervention_plan?.target_component) {
+      if (data?.intervention_plan?.target_component) {
         setComponentServiced(data.intervention_plan.target_component);
       }
     } catch (err) {
@@ -54,7 +46,11 @@ export default function AssetMaintenanceModal({ assetId, onClose, onMaintenanceC
     } finally {
       setLoading(false);
     }
-  };
+  }, [assetId]);
+
+  useEffect(() => {
+    loadAssetDetail();
+  }, [loadAssetDetail]);
 
   const handleCompleteMaintenance = async (e) => {
     e.preventDefault();
@@ -73,6 +69,11 @@ export default function AssetMaintenanceModal({ assetId, onClose, onMaintenanceC
       if (onMaintenanceCompleted) {
         onMaintenanceCompleted(result);
       }
+      if (onSuccess) {
+        onSuccess(result);
+      }
+      // Notify all components across the app to reload data
+      window.dispatchEvent(new CustomEvent('sentinel:data-updated', { detail: { assetId, result } }));
       // Reload asset detail to show fresh post-maintenance state
       await loadAssetDetail();
     } catch (err) {
@@ -111,35 +112,49 @@ export default function AssetMaintenanceModal({ assetId, onClose, onMaintenanceC
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content modal-maintenance" onClick={(e) => e.stopPropagation()}>
+    <div className="sentinel-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="sentinel-modal-container modal-maintenance" onClick={(e) => e.stopPropagation()}>
         {/* Modal Header */}
         <div className="modal-header">
-          <div className="modal-title-wrap">
-            <div className="modal-icon-badge">
-              <Wrench size={22} className="text-cyan" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="brand-shield-box">
+              <Wrench size={18} />
             </div>
             <div>
-              <h2 className="modal-title">
-                Intervention Planning & Servicing: {detail ? detail.asset_code : `Asset #${assetId}`}
-              </h2>
-              <p className="modal-subtitle">
-                {detail ? `${detail.model} • ${detail.asset_type} • Status: ${detail.operational_status}` : 'Loading asset telemetry...'}
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px', fontWeight: 800, fontFamily: 'var(--font-family-mono)' }}>
+                  Intervention Servicing: {detail ? detail.asset_code : `Asset #${assetId}`}
+                </span>
+                {detail?.operational_status && (
+                  <span className="sentinel-badge badge-ready" style={{ fontSize: '10px' }}>
+                    {detail.operational_status}
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                {detail ? `${detail.model || 'Heavy Equipment'} • ${detail.asset_type || 'Machinery'}` : 'Loading asset telemetry...'}
+              </span>
             </div>
           </div>
-          <button className="modal-close-btn" onClick={onClose} aria-label="Close modal">
-            <X size={20} />
+          <button
+            className="header-action-btn"
+            style={{ width: '32px', height: '32px' }}
+            onClick={onClose}
+            aria-label="Close modal"
+          >
+            <X size={16} />
           </button>
         </div>
 
         {/* Modal Body */}
         <div className="modal-body">
           {loading ? (
-            <div className="modal-loading-wrap">
-              <LoadingSpinner />
-              <p className="text-muted">Evaluating telemetry, ML models, and maintenance schedules...</p>
-            </div>
+            <LoadingState
+              message="Synthesizing Maintenance Plan & Telemetry..."
+              subtext="Evaluating component wear metrics, degradation curves, and historical repair logs."
+              size="lg"
+              minHeight="320px"
+            />
           ) : error ? (
             <div className="error-banner">
               <AlertTriangle size={20} />
@@ -389,7 +404,7 @@ export default function AssetMaintenanceModal({ assetId, onClose, onMaintenanceC
                     >
                       {submitting ? (
                         <>
-                          <RefreshCw size={16} className="spin-icon" />
+                          <LoadingSpinner size="xs" />
                           <span>Executing & Reassessing...</span>
                         </>
                       ) : (
