@@ -281,3 +281,13 @@ python src/ML/evaluate.py
 ```bash
 python src/ML/predict.py
 ```
+
+---
+
+## 10. Scope & Known Limitations
+
+- **Single Fleet / Platform Type Calibration**:
+  Due to ML model architecture complexity, divergent physical telemetry operating baselines, and limited multi-platform failure datasets, the current models (`Model A`, `Model B`, and `Model C`) are specifically trained and calibrated for a single fleet type (tactical aircraft/combat vehicle platform). Adapting the pipeline to disparate asset classes (e.g., naval craft, multi-engine heavy transports) requires custom telemetry schema engineering, bespoke degradation curves, and retraining on platform-specific sensor feeds.
+- **Predictive Scope**: Designed for progressive mechanical wear and fatigue trends; cannot predict sudden, non-telemetric battle trauma or external kinetic events.
+- **Offline Batch Retraining**: Model scoring occurs in real-time in FastAPI memory via `ModelRegistry`, while model training and hyperparameter updates operate as an offline batch workflow.
+

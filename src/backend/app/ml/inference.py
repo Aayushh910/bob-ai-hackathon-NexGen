@@ -115,7 +115,7 @@ def run_anomaly_detection(sensor_dict: Dict[str, float]) -> Dict[str, Any]:
         mean = baseline_means.get(feat, 0.0)
         std = baseline_stds.get(feat, 1.0) or 1.0
         sigma = (val - mean) / std
-        is_cause = bool(abs(sigma) >= sigma_thresh)
+        is_cause = bool(is_anomaly and abs(sigma) >= sigma_thresh)
 
         attributions.append({
             "sensor": feat,

@@ -25,7 +25,7 @@ class PredictionRepository(BaseRepository[Prediction, PredictionCreate, Predicti
         return (
             db.query(Prediction)
             .filter(Prediction.asset_id == asset_id)
-            .order_by(Prediction.prediction_timestamp.desc())
+            .order_by(Prediction.prediction_timestamp.desc(), Prediction.id.desc())
             .first()
         )
 

@@ -28,7 +28,7 @@ import {
 import { getCommandOverview, getCommandKPIs } from '../../api/command';
 import { askCopilotQuery, getSupportedIntents } from '../../api/copilot';
 import AssetDetailModal from '../fleet/AssetDetailModal';
-import LoadingSpinner from '../common/LoadingSpinner';
+import { LoadingSpinner, LoadingState } from '../common/UIComponents';
 import ErrorMessage from '../common/ErrorMessage';
 
 export default function MLCopilotView() {
@@ -102,7 +102,7 @@ export default function MLCopilotView() {
         <div>
           <div className="hero-badge">
             <BrainCircuit size={14} />
-            <span>Phase 6 — Command Intelligence & Operational Copilot Active</span>
+            <span>Operational Decision Support Core</span>
           </div>
           <h2 className="fleet-title">SentinelAI Command Intelligence & Operational Copilot</h2>
           <p className="fleet-subtitle">
@@ -223,11 +223,11 @@ export default function MLCopilotView() {
             className="btn-copilot-send"
           >
             {isLoadingQuery ? (
-              <RefreshCw size={16} className="spin-icon" />
+              <LoadingSpinner size="xs" />
             ) : (
               <Send size={16} />
             )}
-            <span>Execute Inquest</span>
+            <span>{isLoadingQuery ? 'Synthesizing...' : 'Execute Inquest'}</span>
           </button>
         </form>
 
@@ -252,7 +252,16 @@ export default function MLCopilotView() {
       </div>
 
       {/* Copilot Synthesized Response Box */}
-      {copilotResponse && (
+      {isLoadingQuery ? (
+        <div className="copilot-answer-panel glassmorphism" style={{ padding: '32px' }}>
+          <LoadingState
+            message="Synthesizing Operational Inquest..."
+            subtext="Interrogating multi-sensor telemetry, ML predictions, and readiness database."
+            size="md"
+            minHeight="140px"
+          />
+        </div>
+      ) : copilotResponse && (
         <div className="copilot-answer-panel glassmorphism">
           <div className="answer-panel-header">
             <div className="answer-intent-tag">

@@ -218,9 +218,12 @@ class CommandIntelligenceEngine:
 
         return ranked
 
-    def get_command_attention_queue(self, db: Session, limit: int = 15) -> List[CommandAttentionQueueItem]:
+    def get_command_attention_queue(
+        self, db: Session, limit: int = 15, ranked_risks: Optional[List[FleetRiskRankItem]] = None
+    ) -> List[CommandAttentionQueueItem]:
         """Unified command attention queue prioritizing assets requiring urgent command intervention."""
-        ranked_risks = self.get_fleet_risk_ranking(db)
+        if ranked_risks is None:
+            ranked_risks = self.get_fleet_risk_ranking(db)
         queue: List[CommandAttentionQueueItem] = []
 
         for itm in ranked_risks:
@@ -517,8 +520,8 @@ class CommandIntelligenceEngine:
     def get_command_overview(self, db: Session) -> CommandOverviewResponse:
         """Master endpoint providing the comprehensive command intelligence snapshot."""
         kpis = self.get_command_kpis(db)
-        attention_queue = self.get_command_attention_queue(db, limit=10)
-        risk_ranking = self.get_fleet_risk_ranking(db)[:10]
+        risk_ranking = self.get_fleet_risk_ranking(db)
+        attention_queue = self.get_command_attention_queue(db, limit=10, ranked_risks=risk_ranking)
         trends = self.get_trend_intelligence(db)
         recent_changes = self.get_recent_changes(db, limit=10)
         subsystem_metrics = self.get_subsystem_analytics(db)
@@ -527,7 +530,7 @@ class CommandIntelligenceEngine:
             timestamp=datetime.now(timezone.utc),
             kpis=kpis,
             attention_queue=attention_queue,
-            top_risk_ranking=risk_ranking,
+            top_risk_ranking=risk_ranking[:10],
             trends=trends,
             recent_changes=recent_changes,
             subsystem_metrics=subsystem_metrics,

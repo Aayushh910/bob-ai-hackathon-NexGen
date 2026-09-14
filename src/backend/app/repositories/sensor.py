@@ -59,7 +59,7 @@ class SensorReadingRepository(BaseRepository[SensorReading, SensorReadingCreate,
         return (
             db.query(SensorReading)
             .filter(SensorReading.asset_id == asset_id)
-            .order_by(SensorReading.timestamp.desc())
+            .order_by(SensorReading.timestamp.desc(), SensorReading.id.desc())
             .first()
         )
 
