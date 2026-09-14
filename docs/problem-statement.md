@@ -39,4 +39,4 @@ These approaches can identify obvious faults but may not provide a unified view 
 - Reasons behind the risk
 - Recommended maintenance priorities
 
-MissionGuard addresses this gap by combining sensor analytics and machine-learning-based risk prediction with an AI Copilot that explains the results and converts them into actionable maintenance recommendations.
+SentinelAI addresses this gap by combining sensor analytics and machine-learning-based risk prediction with an AI Copilot that explains the results and converts them into actionable maintenance recommendations.
