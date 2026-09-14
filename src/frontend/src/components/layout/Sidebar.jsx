@@ -63,7 +63,7 @@ export default function Sidebar({
       <div className="sidebar-header">
         <div className="sidebar-brand">
           <div className="brand-shield-box">
-            <Shield size={20} />
+            <img src="/logo.png" alt="SentinelAI Logo" className="brand-logo-img" />
             <span className="brand-pulse-dot" title="Telemetry Live Stream Active" />
           </div>
           <div className="brand-identity-text">

@@ -67,6 +67,13 @@
   color: var(--color-text);
 }
 
+.brand-logo-img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  display: block;
+}
+
 .brand-pulse-dot {
   position: absolute;
   top: -2px;

@@ -107,7 +107,7 @@ export default function LandingPage({ onEnter }) {
       <header className="landing-nav">
         <div className="landing-brand">
           <div className="brand-shield-box">
-            <Shield size={20} />
+            <img src="/logo.png" alt="SentinelAI Logo" className="brand-logo-img" />
             <span className="brand-pulse-dot" />
           </div>
           <span className="landing-brand-title">SENTINELAI</span>
@@ -352,7 +352,7 @@ export default function LandingPage({ onEnter }) {
       <footer className="landing-footer">
         <div className="footer-inner">
           <div className="landing-brand">
-            <Shield size={18} />
+            <img src="/logo.png" alt="SentinelAI" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
             <span style={{ fontWeight: 700, letterSpacing: '0.05em' }}>SENTINELAI</span>
           </div>
 

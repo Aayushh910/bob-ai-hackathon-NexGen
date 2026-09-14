@@ -14,7 +14,7 @@ export default function Navbar({ activeTab, onTabChange }) {
     <header className="navbar-container">
       <div className="navbar-brand">
         <div className="brand-icon-wrapper">
-          <Shield className="brand-icon" size={24} />
+          <img src="/logo.png" alt="SentinelAI Logo" className="brand-logo-img" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
           <span className="pulse-indicator"></span>
         </div>
         <div className="brand-text">

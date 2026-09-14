@@ -61,7 +61,7 @@ export default function LoginPage({ onLogin }) {
           <div>
             <div className="auth-brand-head">
               <div className="brand-shield-box">
-                <Shield size={20} />
+                <img src="/logo.png" alt="SentinelAI Logo" className="brand-logo-img" />
                 <span className="brand-pulse-dot" />
               </div>
               <span className="auth-brand-name">SENTINELAI</span>

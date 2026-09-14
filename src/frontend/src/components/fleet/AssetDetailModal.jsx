@@ -11,7 +11,7 @@ import {
 import { getAssetTelemetry, getLatestAssetTelemetry } from '../../api/telemetry';
 import { getLatestPrediction, getAssetAnomalies } from '../../api/ml';
 import { getAssetReadiness, assessAssetReadiness, updateRecommendationStatus } from '../../api/readiness';
-import { StatusBadge, RiskBadge, LoadingSpinner, LoadingState } from '../common/UIComponents';
+import { StatusBadge, RiskBadge, LoadingSpinner, LoadingState, EmptyState } from '../common/UIComponents';
 
 export default function AssetDetailModal({ asset, onClose }) {
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'health' | 'predictions' | 'maintenance' | 'alerts'

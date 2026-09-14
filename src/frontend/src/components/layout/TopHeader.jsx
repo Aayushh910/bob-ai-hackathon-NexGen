@@ -49,7 +49,10 @@ export default function TopHeader({
         </button>
 
         <nav aria-label="Breadcrumbs" className="header-breadcrumbs">
-          <span className="breadcrumb-root">SentinelAI</span>
+          <span className="breadcrumb-root" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <img src="/logo.png" alt="SentinelAI" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+            SentinelAI
+          </span>
           <span className="breadcrumb-sep">/</span>
           <span className="breadcrumb-current">{getTabBreadcrumb()}</span>
         </nav>
