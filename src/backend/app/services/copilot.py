@@ -299,7 +299,7 @@ class OperationalCopilotEngine:
     def _handle_not_ready(self, db: Session, query: str, intent: str, conf: float, now: datetime) -> CopilotResponse:
         fleet_res = readiness_service.list_fleet_readiness(db, state="NOT_READY", limit=10)
         items = fleet_res.items
-        count = fleet_res.total_count
+        count = getattr(fleet_res, 'total', len(items))
 
         codes = [i.asset_code for i in items[:5]]
         ans = f"There are {count} assets currently NOT MISSION-READY and grounded from operational deployment: {', '.join(codes)}{'...' if count > 5 else ''}. These assets exhibit critical risk breaches or exhausted RUL."

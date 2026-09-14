@@ -27,6 +27,10 @@ class AssetResponse(AssetBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    readiness_score: Optional[float] = None
+    readiness_state: Optional[str] = None
+    condition: Optional[str] = None
+    sensor_connected: Optional[bool] = True
 
     model_config = ConfigDict(from_attributes=True)
 

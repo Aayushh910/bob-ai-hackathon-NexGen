@@ -12,7 +12,7 @@ class ReadinessRepository:
         return (
             db.query(ReadinessAssessment)
             .filter(ReadinessAssessment.asset_id == asset_id)
-            .order_by(desc(ReadinessAssessment.created_at))
+            .order_by(desc(ReadinessAssessment.created_at), desc(ReadinessAssessment.id))
             .first()
         )
 

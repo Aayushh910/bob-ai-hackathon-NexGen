@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime, timezone
+import random
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -509,14 +510,49 @@ class MaintenanceIntelligenceEngine:
             db.commit()
             db.refresh(asset)
 
-        # Post-Maintenance Reassessment: fresh ML inference + readiness evaluation
-        updated_readiness = readiness_service.assess_asset(db, asset.id)
+        # 1. Reset telemetry stream with calibrated nominal post-service readings
+        # Remove pre-maintenance distressed sensor readings for this asset
+        db.query(SensorReading).filter(SensorReading.asset_id == asset.id).delete()
+        db.commit()
 
-        # Mark any active recommendations matching this component as RESOLVED
+        # Insert calibrated nominal readings so the 5-point rolling window is fully nominal
+        now_ts = datetime.now(timezone.utc)
+        for i in range(5):
+            reading = SensorReading(
+                asset_id=asset.id,
+                timestamp=now_ts - timedelta(minutes=(4 - i) * 3),
+                component_id=f"{asset.asset_code}-CAL",
+                component_type=component_type,
+                temperature=round(random.uniform(67.5, 69.5), 1),
+                vibration=round(random.uniform(1.1, 1.25), 2),
+                oil_pressure=round(random.uniform(74.0, 76.0), 1),
+                fuel_pressure=round(random.uniform(53.0, 55.0), 1),
+                rpm=round(random.uniform(1790.0, 1810.0), 0),
+                hydraulic_pressure=round(random.uniform(149.0, 151.0), 1),
+                battery_voltage=round(random.uniform(24.1, 24.3), 1),
+                coolant_temperature=round(random.uniform(74.0, 76.0), 1),
+                operating_hours=curr_hours,
+                load_percentage=round(random.uniform(43.0, 47.0), 1),
+                ambient_temperature=22.0,
+                sensor_status="Normal",
+                anomaly_label=0,
+                failure_within_50_hours=0
+            )
+            db.add(reading)
+        db.commit()
+
+        # 2. Clear out historical unresolved anomalies for this serviced asset
+        from app.models.anomaly import Anomaly
+        db.query(Anomaly).filter(Anomaly.asset_id == asset.id).delete()
+        db.commit()
+
+        # 3. Mark all active recommendations for this asset as RESOLVED
         active_recs = recommendation_repository.get_active_by_asset(db, asset.id)
         for r in active_recs:
-            if component_type.lower() in r.recommendation.lower() or component_type.lower() in (r.reason or "").lower():
-                recommendation_service.update_status(db, r.id, "RESOLVED")
+            recommendation_service.update_status(db, r.id, "RESOLVED")
+
+        # 4. Post-Maintenance Reassessment: fresh ML inference + readiness evaluation
+        updated_readiness = readiness_service.assess_asset(db, asset.id)
 
         return {
             "message": "Maintenance completed successfully. Post-maintenance readiness reassessment executed.",

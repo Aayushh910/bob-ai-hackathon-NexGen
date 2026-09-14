@@ -214,7 +214,7 @@ class MissionReadinessEngine:
             deduct = 20.0 + min(len(attributed_sensors) * 3.0, 10.0)
             score -= deduct
             contributions.append(ContributingFactor(name="Sensor Anomaly", score_impact=-deduct, reason=f"High anomaly score ({anom_score:.2f}) with {len(attributed_sensors)} abnormal channels"))
-        elif anom_score >= 0.40 or len(attributed_sensors) > 0:
+        elif is_anomaly and (anom_score >= 0.40 or len(attributed_sensors) > 0):
             deduct = 10.0 + min(len(attributed_sensors) * 2.5, 7.5)
             score -= deduct
             contributions.append(ContributingFactor(name="Sensor Anomaly", score_impact=-deduct, reason=f"Telemetry anomaly indications ({len(attributed_sensors)} abnormal channels)"))
