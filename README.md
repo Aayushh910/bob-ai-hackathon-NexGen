@@ -112,27 +112,20 @@ cd src/frontend && npm run dev
 
 ## ⚠️ Known Limitations
 
-
-- **Single Fleet / Platform Type Specialization** — Due to model complexity, divergent telemetry baselines, and limited multi-platform failure data, the predictive models and degradation curves are currently built and calibrated for a single fleet type (tactical aircraft/vehicle platform). Extending to heterogeneous vehicle or vessel classes requires platform-specific sensor schema mapping and dedicated model retraining.
-
-- **Synthetic/limited sensor data** — The prototype uses simulated or publicly available sensor data rather than live military platform telemetry, so real-world performance may differ. Real predictive-maintenance datasets can also have limited failure examples
-
-- **Predictive Scope vs. Combat Trauma**: The system is engineered to detect progressive mechanical fatigue and wear (thermal spikes, pressure drops, bearing degradation). It cannot anticipate sudden battle damage, kinetic strikes, or structural failures that occur without prior telemetry warning.
-
-- **Offline Retraining Boundary**: Runtime inference is instantaneous via an in-memory `ModelRegistry` in FastAPI, but model training and hyperparameter updates currently operate as an offline batch process rather than continuous on-device edge learning.
-
-- **Scoped Domain Querying (Not a General-Purpose Chatbot)**: AI copilot is focused on defense fleet operations and maintenance. It uses asset telemetry, failure risks, readiness data, and maintenance history to provide grounded recommendations. It does not answer general or unrelated questions outside the supported fleet data and operational tasks.
+- **Single Platform Focus** — Models are currently calibrated for one primary fleet type (tactical aircraft/vehicles). Adding new vehicle or naval classes requires platform-specific retraining.
+- **Simulated Sensor Data** — The prototype runs on simulated and open-source telemetry rather than live classified military feeds.
+- **Wear vs. Combat Damage** — The system detects progressive mechanical wear (vibration spikes, overheating, pressure loss). It cannot predict sudden battle damage or unexpected physical strikes.
+- **Offline Model Updates** — Predictions happen instantly in real time, but model retraining is currently handled offline in batches.
+- **Defense-Specific Copilot** — The AI assistant is strictly scoped to fleet operations, telemetry, and maintenance tasks—not general chat.
+- **Mock Authentication** — Production SSO/LDAP authentication is not yet integrated; the system currently uses preset demonstration credentials for access.
 
 ---
 
 ## 🏅 What We're Most Proud Of
 
-- **End-to-End ML Pipeline with Zero Mocks** — Instead of static mock data or generic prompts, we engineered, trained, and served 4 specialized models (Random Forest failure classifier, Extra Trees RUL regressor, failure mode classifier, and Isolation Forest anomaly detector) with strict target-leakage audits across 20,000+ telemetry records.
-
-- **Human-Centered, Mission-First User Experience** — Designed the entire interface to minimize cognitive overload in high-stress operational environments, replacing overwhelming raw data dumps with ranked attention queues, clear visual readiness tiers, and one-click diagnostics.
-
-- **Closed-Loop Maintenance & Verified Reassessment** — Maintenance isn't treated as a static to-do list. When an operator marks an intervention complete, SentinelAI immediately executes post-service inference to verify that sensor anomalies have cleared and objectively recalculates the asset's readiness score.
-
-- **Production-Grade Architecture & 100% Test Pass Rate** — We built a robust, enterprise-ready full-stack system—combining a modern React command console, high-performance FastAPI backend, and PostgreSQL with Alembic migrations—backed by a comprehensive test suite of 45/45 passing automated pytest tests.
+- **Real End-to-End ML (Zero Mocks)** — Trained and deployed 4 specialized models (failure risk, RUL forecasting, failure modes, anomaly detection) across 20,000+ telemetry records.
+- **Mission-First Tactical UI** — Designed an intuitive defense console with ranked attention queues, visual readiness tiers, and real-time telemetry charts.
+- **Closed-Loop Maintenance** — Completing a work order automatically triggers live sensor reassessment to verify that anomalies cleared and update readiness scores.
+- **Production-Grade & 100% Tested** — Built a complete full-stack architecture (React, FastAPI, PostgreSQL, Alembic) backed by 45/45 passing automated tests.
 
 ---
