@@ -13,18 +13,18 @@ export default function TacticalBackground() {
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
-    // Particle / Sensor Node Definition
-    const nodeCount = Math.min(55, Math.floor((width * height) / 25000));
+    // Particle / Sensor Node Definition (Pure Monochromatic Tactical)
+    const nodeCount = Math.min(50, Math.floor((width * height) / 26000));
     const nodes = [];
 
     for (let i = 0; i < nodeCount; i++) {
       nodes.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.45,
-        vy: (Math.random() - 0.5) * 0.45,
-        radius: Math.random() > 0.85 ? 2.2 : 1.4,
-        isBeacon: Math.random() > 0.8,
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
+        radius: Math.random() > 0.85 ? 1.8 : 1.2,
+        isBeacon: Math.random() > 0.82,
         pulseRadius: 0,
         pulseAlpha: 0,
       });
@@ -56,17 +56,17 @@ export default function TacticalBackground() {
     const render = () => {
       ctx.clearRect(0, 0, width, height);
 
-      // Draw Connection Vectors
+      // 1. Draw Subtle Monochrome Connection Vectors
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           const dx = nodes[i].x - nodes[j].x;
           const dy = nodes[i].y - nodes[j].y;
           const dist = Math.hypot(dx, dy);
 
-          if (dist < 135) {
-            const alpha = (1 - dist / 135) * 0.08;
+          if (dist < 130) {
+            const alpha = (1 - dist / 130) * 0.08;
             ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-            ctx.lineWidth = 0.75;
+            ctx.lineWidth = 0.7;
             ctx.beginPath();
             ctx.moveTo(nodes[i].x, nodes[i].y);
             ctx.lineTo(nodes[j].x, nodes[j].y);
@@ -75,7 +75,7 @@ export default function TacticalBackground() {
         }
       }
 
-      // Draw Nodes & Pulses
+      // 2. Draw Nodes & Gentle Pulses (Monochromatic White / Subtle Emerald)
       for (let i = 0; i < nodes.length; i++) {
         const n = nodes[i];
 
@@ -98,10 +98,18 @@ export default function TacticalBackground() {
         }
 
         // Draw node
-        ctx.fillStyle = n.isBeacon ? 'rgba(34, 197, 94, 0.7)' : 'rgba(255, 255, 255, 0.35)';
+        if (n.isBeacon) {
+          ctx.fillStyle = '#ffffff';
+          ctx.shadowColor = '#ffffff';
+          ctx.shadowBlur = 6;
+        } else {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+          ctx.shadowBlur = 0;
+        }
         ctx.beginPath();
         ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
         ctx.fill();
+        ctx.shadowBlur = 0;
 
         // Draw radar pulse for beacon nodes
         if (n.isBeacon) {
@@ -113,7 +121,7 @@ export default function TacticalBackground() {
             n.pulseAlpha = 0.35;
           }
 
-          ctx.strokeStyle = `rgba(34, 197, 94, ${n.pulseAlpha})`;
+          ctx.strokeStyle = `rgba(255, 255, 255, ${n.pulseAlpha * 0.6})`;
           ctx.lineWidth = 0.8;
           ctx.beginPath();
           ctx.arc(n.x, n.y, n.pulseRadius, 0, Math.PI * 2);
@@ -136,11 +144,11 @@ export default function TacticalBackground() {
 
   return (
     <div className="tactical-bg-root" aria-hidden="true">
-      {/* Grid Pattern Overlay */}
+      {/* Pure Black Grid Pattern */}
       <div className="tactical-grid-overlay" />
-      {/* Ambient Breathing Vignette */}
+      {/* Tactical Deep Black Vignette */}
       <div className="tactical-ambient-vignette" />
-      {/* Dynamic Sensor Node Canvas */}
+      {/* Dynamic Monochromatic Sensor Node Canvas */}
       <canvas ref={canvasRef} className="tactical-canvas" />
     </div>
   );

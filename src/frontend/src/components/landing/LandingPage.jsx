@@ -13,273 +13,820 @@ import {
   BarChart3,
   Layers,
   Lock,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  ShieldCheck,
+  AlertOctagon,
+  Gauge,
+  Sparkles,
+  Terminal,
+  Clock
 } from 'lucide-react';
 import TacticalBackground from './TacticalBackground';
 
 export default function LandingPage({ onEnter }) {
-  // Live simulated telemetry reading for the Hero preview card
+  // Active selected asset for the interactive Demo Cockpit HUD
+  const [selectedAssetKey, setSelectedAssetKey] = useState('A001');
+  const [simulateAnomaly, setSimulateAnomaly] = useState(false);
+
+  // Asset configurations for the interactive preview HUD
+  const assetProfiles = {
+    A001: {
+      code: 'A001',
+      name: 'Eurofighter Typhoon',
+      type: 'Air Superiority Fighter',
+      depot: 'Tactical Air Command • Wing 3',
+      baseScore: 94,
+      rul: '240+ Hours',
+      status: 'MISSION READY',
+      statusClass: 'ready',
+      vibrationBase: 1.25,
+      tempBase: 78.4,
+      pressureBase: 2150,
+      hydraulicsBase: 155,
+      failureProb: '4.2%',
+      directive: 'Routine continuous HUMS telemetry surveillance. Cleared for sortie roster.'
+    },
+    A003: {
+      code: 'A003',
+      name: 'Sea King Heavy Transport',
+      type: 'Maritime Utility Transport',
+      depot: 'Naval Depot Alpha • Sector 7',
+      baseScore: 28,
+      rul: '8.4 Hours',
+      status: 'CRITICAL / GROUND HOLD',
+      statusClass: 'critical',
+      vibrationBase: 4.85,
+      tempBase: 104.2,
+      pressureBase: 1820,
+      hydraulicsBase: 110,
+      failureProb: '86.4%',
+      directive: 'Ground asset immediately. High thermal variance detected in Turbine Bearing #2.'
+    },
+    A007: {
+      code: 'A007',
+      name: 'Naval Gas Turbine Unit',
+      type: 'Propulsion Turbine Bus',
+      depot: 'Drydock Engineering • Bay 2',
+      baseScore: 62,
+      rul: '42.0 Hours',
+      status: 'DEGRADED / CAUTION',
+      statusClass: 'degraded',
+      vibrationBase: 2.80,
+      tempBase: 88.5,
+      pressureBase: 1980,
+      hydraulicsBase: 138,
+      failureProb: '48.1%',
+      directive: 'Schedule depot intervention within 48h. Hydraulic pressure drift identified.'
+    }
+  };
+
+  const activeProfile = assetProfiles[selectedAssetKey];
+
+  // Live telemetry pulse
   const [telemetry, setTelemetry] = useState({
-    vibration: 1.4,
-    temp: 82.5,
+    vibration: 1.25,
+    temp: 78.4,
     pressure: 2150,
-    rpm: 1850,
-    hydraulics: 152,
-    voltage: 24.2,
+    hydraulics: 155,
+    tick: 0
   });
+
+  // Dynamic rotating defence taglines (short, punchy statements)
+  const taglines = [
+    'Guaranteed Before Takeoff.',
+    'Zero Unplanned Downtime.',
+    'Autonomous Fleet Defense.',
+    'Predictive Failure Clearance.',
+    'Sub-Second Sensor Intelligence.'
+  ];
+
+  const [taglineIdx, setTaglineIdx] = useState(0);
+  const [displayedTagline, setDisplayedTagline] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    const fullText = taglines[taglineIdx];
+    const speed = isDeleting ? 28 : 60;
+
+    if (!isDeleting && displayedTagline === fullText) {
+      const pauseTimer = setTimeout(() => {
+        setIsDeleting(true);
+      }, 2400);
+      return () => clearTimeout(pauseTimer);
+    }
+
+    if (isDeleting && displayedTagline === '') {
+      setIsDeleting(false);
+      setTaglineIdx((prev) => (prev + 1) % taglines.length);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setDisplayedTagline((prev) => {
+        if (!isDeleting) {
+          return fullText.slice(0, prev.length + 1);
+        } else {
+          return fullText.slice(0, prev.length - 1);
+        }
+      });
+    }, speed);
+
+    return () => clearTimeout(timer);
+  }, [displayedTagline, isDeleting, taglineIdx]);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setTelemetry({
-        vibration: +(1.2 + Math.random() * 0.4).toFixed(2),
-        temp: +(81 + Math.random() * 3).toFixed(1),
-        pressure: Math.floor(2120 + Math.random() * 60),
-        rpm: Math.floor(1830 + Math.random() * 40),
-        hydraulics: Math.floor(150 + Math.random() * 5),
-        voltage: +(24.0 + Math.random() * 0.4).toFixed(1),
-      });
-    }, 1800);
+      const p = assetProfiles[selectedAssetKey];
+      const anomMultiplier = simulateAnomaly ? 1.45 : 1.0;
+      setTelemetry((prev) => ({
+        vibration: +(p.vibrationBase * anomMultiplier + (Math.random() - 0.5) * 0.15).toFixed(2),
+        temp: +(p.tempBase * anomMultiplier + (Math.random() - 0.5) * 1.2).toFixed(1),
+        pressure: Math.floor(p.pressureBase * (simulateAnomaly ? 0.88 : 1.0) + (Math.random() - 0.5) * 20),
+        hydraulics: Math.floor(p.hydraulicsBase * (simulateAnomaly ? 0.85 : 1.0) + (Math.random() - 0.5) * 4),
+        tick: prev.tick + 1
+      }));
+    }, 1200);
     return () => clearInterval(timer);
-  }, []);
+  }, [selectedAssetKey, simulateAnomaly]);
+
+  const scrollToDemo = () => {
+    const el = document.getElementById('demo-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   const capabilities = [
     {
-      icon: Shield,
-      title: 'Fleet Readiness Tracking',
-      desc: 'Deterministic operational clearance scoring across land, aviation, and naval assets with automated ground-truth validation.'
+      icon: ShieldCheck,
+      title: 'Deterministic Readiness Scoring',
+      metric: '99.4% Sortie Cleared',
+      desc: 'Multi-sensor clearance algorithms evaluate temperature, vibration, and hydraulic drift to verify mission airworthiness before deployment.'
     },
     {
       icon: TrendingUp,
-      title: 'Predictive Failure Risk',
-      desc: 'Remaining Useful Life (RUL) horizon forecasting and early degradation warning prior to mission-critical subsystem lockup.'
+      title: 'RUL Horizon Forecasting',
+      metric: '50+ Hrs Early Warning',
+      desc: 'Machine-learning prognostic regression models forecast Remaining Useful Life curves to preempt subsystem breakdown cascades.'
     },
     {
       icon: Radio,
-      title: 'Real-Time Anomaly Detection',
-      desc: 'Continuous multi-variate sensor telemetry evaluation isolating thermal spikes, pressure decays, and harmonic deviations.'
+      title: 'Real-Time HUMS Bus Diagnostics',
+      metric: '< 120ms Latency',
+      desc: 'Continuous high-frequency bus analysis isolating abnormal thermal variances, pressure decay, and harmonic jitter.'
     },
     {
       icon: Wrench,
-      title: 'Maintenance Intelligence',
-      desc: 'Prescriptive depot-level work orders, priority service queues, and automated technician intervention roadmaps.'
+      title: 'Autonomous Depot Work Orders',
+      metric: '-68% Unplanned Downtime',
+      desc: 'Evidence-backed maintenance directives linking telemetry anomalies directly to targeted spare parts and technician protocols.'
     },
     {
       icon: Activity,
-      title: 'Subsystem Health Diagnostics',
-      desc: 'Comprehensive structural analysis covering powertrain, hydraulics, avionics, electrical, and propulsion subsystems.'
+      title: 'Subsystem Degradation Attribution',
+      metric: '5 Core Subsystems',
+      desc: 'Real-time telemetry attribution across turbine powertrain, hydraulic lines, fuel manifolds, electrical bus, and avionics.'
     },
     {
       icon: BarChart3,
-      title: 'Operational Analytics',
-      desc: 'Fleet-wide reliability trends, MTBF benchmarking, and mission availability metrics exportable for command review.'
+      title: 'Fleet Reliability Intelligence',
+      metric: '100% Audit Compliance',
+      desc: 'Pre-flight clearance briefs, MTBF benchmarks, and historical intervention logs verified and exportable to CSV.'
     }
   ];
 
-  const workflowSteps = [
+  const workflowStages = [
     {
       step: '01',
-      title: 'Telemetry Ingestion',
-      desc: 'Real-time HUMS streams, vibration harmonics, thermal sensors, and pressure bus data captured at high frequency.'
+      name: 'High-Frequency Ingestion',
+      subtitle: '50,000 pts/sec Telemetry',
+      desc: 'MIL-STD bus telemetry, vibration accelerometers, and hydraulic sensors ingested continuously with automated deduplication.'
     },
     {
       step: '02',
-      title: 'Health Intelligence',
-      desc: 'Real-time baseline calibration, variance isolation, and subsystem operational state attribution.'
+      name: 'Multi-Variate Anomaly Isolation',
+      subtitle: '3-Sigma Isolation Engine',
+      desc: 'Statistical anomaly engines separate ambient sensor noise and environmental factors from authentic mechanical wear.'
     },
     {
       step: '03',
-      title: 'Risk Prediction',
-      desc: 'Machine-learning prognostic inference calculating failure probability and Remaining Useful Life (RUL).'
+      name: 'RUL Failure Prognostics',
+      subtitle: 'Predictive XGBoost Regressors',
+      desc: 'Remaining Useful Life regression models predict time-to-failure horizons, pinpointing critical degradation curves.'
     },
     {
       step: '04',
-      title: 'Actionable Maintenance',
-      desc: 'Automated work-order generation, depot clearance directives, and preventative component dispatching.'
+      name: 'Autonomous Depot Dispatch',
+      subtitle: 'Priority Work Orders',
+      desc: 'Maintenance work orders generated automatically with prescribed parts, technician checklists, and urgency ratings.'
     }
   ];
 
+  const currentStatus = simulateAnomaly
+    ? 'CRITICAL / ANOMALY DETECTED'
+    : activeProfile.status;
+  const currentStatusClass = simulateAnomaly ? 'critical' : activeProfile.statusClass;
+  const currentScore = simulateAnomaly
+    ? Math.max(18, Math.round(activeProfile.baseScore * 0.45))
+    : activeProfile.baseScore;
+
+  // Selected metric tab for the line chart
+  const [selectedChartMetric, setSelectedChartMetric] = useState('vibration');
+
+  // Dynamic Line Chart Trend Data (increasing & decreasing fluctuations)
+  const getLineChartData = () => {
+    const isAnom = simulateAnomaly || activeProfile.statusClass === 'critical';
+    if (selectedChartMetric === 'vibration') {
+      const vals = isAnom
+        ? [1.35, 1.85, 2.45, 3.40, 4.15, telemetry.vibration]
+        : [1.18, 1.35, 1.15, 1.42, 1.20, telemetry.vibration];
+      return {
+        label: 'Vibration Amplitude',
+        unit: 'g-RMS',
+        min: 0,
+        max: 6.0,
+        threshold: 3.0,
+        thresholdLabel: 'SAFETY LIMIT: 3.0 g-RMS',
+        values: vals,
+        isDanger: telemetry.vibration > 3.0
+      };
+    } else if (selectedChartMetric === 'temp') {
+      const vals = isAnom
+        ? [78.2, 83.5, 89.0, 95.8, 101.4, telemetry.temp]
+        : [76.5, 79.2, 77.1, 80.5, 77.8, telemetry.temp];
+      return {
+        label: 'Core Temperature',
+        unit: '°C',
+        min: 50,
+        max: 120,
+        threshold: 95,
+        thresholdLabel: 'THERMAL CEILING: 95°C',
+        values: vals,
+        isDanger: telemetry.temp > 95
+      };
+    } else {
+      const vals = isAnom
+        ? [2150, 2090, 2010, 1940, 1860, telemetry.pressure]
+        : [2160, 2140, 2170, 2135, 2155, telemetry.pressure];
+      return {
+        label: 'Oil Manifold Pressure',
+        unit: 'psi',
+        min: 1600,
+        max: 2400,
+        threshold: 1900,
+        thresholdLabel: 'MIN SAFETY LIMIT: 1900 psi',
+        values: vals,
+        isDanger: telemetry.pressure < 1900
+      };
+    }
+  };
+
+  const chartData = getLineChartData();
+  const xPositions = [45, 107, 169, 231, 293, 355];
+  const topY = 16;
+  const bottomY = 145;
+  const chartHeight = bottomY - topY;
+
+  const chartCoords = chartData.values.map((v, idx) => {
+    const norm = Math.max(0, Math.min(1, (v - chartData.min) / (chartData.max - chartData.min)));
+    return {
+      x: xPositions[idx],
+      y: Math.round(bottomY - norm * chartHeight)
+    };
+  });
+
+  const threshNorm = Math.max(0, Math.min(1, (chartData.threshold - chartData.min) / (chartData.max - chartData.min)));
+  const threshY = Math.round(bottomY - threshNorm * chartHeight);
+
+  const linePathD = chartCoords.reduce((acc, pt, i) => `${acc} ${i === 0 ? 'M' : 'L'} ${pt.x},${pt.y}`, '');
+  const areaPathD = `${linePathD} L ${chartCoords[chartCoords.length - 1].x},${bottomY} L ${chartCoords[0].x},${bottomY} Z`;
+
   return (
     <div className="landing-shell">
-      {/* Tactical Dynamic Background Animation */}
+      {/* Tactical Canvas Background (Pure Black Monochromatic) */}
       <TacticalBackground />
 
-      {/* Top Navigation */}
+      {/* Floating Top Nav (Wide Screen Coverage) */}
       <header className="landing-nav">
         <div className="landing-brand">
           <div className="brand-shield-box">
             <img src="/logo.png" alt="SentinelAI Logo" className="brand-logo-img" />
             <span className="brand-pulse-dot" />
           </div>
-          <span className="landing-brand-title">SENTINELAI</span>
+          <div>
+            <div className="landing-brand-title">SENTINELAI</div>
+            <div className="landing-brand-dept">DEFENCE &amp; FLEET READINESS</div>
+          </div>
         </div>
 
         <nav className="landing-nav-links" aria-label="Main Navigation">
+          <button onClick={scrollToDemo} className="landing-nav-link-btn">Telemetry Demo</button>
+          <a href="#pipeline" className="landing-nav-link">Architecture</a>
           <a href="#capabilities" className="landing-nav-link">Capabilities</a>
-          <a href="#workflow" className="landing-nav-link">Architecture</a>
-          <a href="#readiness" className="landing-nav-link">Readiness Model</a>
+          <a href="#maturity" className="landing-nav-link">Readiness Model</a>
+          <a href="#compliance" className="landing-nav-link">Compliance</a>
         </nav>
 
-        <button className="primary-btn" onClick={onEnter}>
-          Sign In
-          <ChevronRight size={16} />
-        </button>
+        <div className="landing-nav-actions">
+          <button className="nav-login-btn" onClick={onEnter}>
+            <span>Command Center</span>
+            <ArrowRight size={14} />
+          </button>
+        </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="landing-hero-section">
-        <div className="hero-left-col">
+      {/* Centered Hero Section (Single-Line Typing Effect & Wide Layout) */}
+      <section className="landing-hero-section centered">
+        <div className="hero-center-container">
           <div className="hero-pill-badge">
-            <Activity size={13} style={{ color: 'var(--color-success)' }} />
-            <span>Mission Readiness Platform</span>
+            <ShieldCheck size={14} style={{ color: 'var(--color-success, #22c55e)' }} />
+            <span>AUTONOMOUS DEFENCE READINESS PLATFORM</span>
           </div>
 
+          {/* Static first line not moving, typing effect on second line */}
           <h1 className="hero-main-heading">
-            Mission Readiness,<br />Powered by Intelligence.
+            <span className="hero-static-title">Mission Readiness,</span>
+            <span className="typewriter-line">
+              <span className="typewriter-text">{displayedTagline}</span>
+              <span className="typewriter-cursor">|</span>
+            </span>
           </h1>
 
           <p className="hero-subtext">
-            Continuous equipment health monitoring, predictive failure detection,
-            maintenance intelligence, and real-time operational availability visibility
-            for defence and enterprise fleet operations.
+            Real-time sensor intelligence to detect equipment failures early, clear assets for missions, and automate fleet maintenance.
           </p>
 
-          <div className="hero-cta-row">
+          <div className="hero-cta-row centered">
             <button className="hero-cta-btn primary" onClick={onEnter}>
-              Sign In to Command Center
+              <Terminal size={17} />
+              <span>Launch Command Center</span>
               <ArrowRight size={16} />
             </button>
-            <a href="#capabilities" className="hero-cta-btn secondary">
-              Explore Platform
-            </a>
+            <button className="hero-cta-btn secondary" onClick={scrollToDemo}>
+              <Activity size={16} />
+              <span>View Live Demo</span>
+              <ChevronDown size={16} />
+            </button>
           </div>
 
-          <div className="hero-metrics-strip">
-            <div className="hero-metric-item">
-              <span className="hero-metric-num">99.4%</span>
-              <span className="hero-metric-lbl">Mission Readiness Target</span>
-            </div>
-            <div className="hero-metric-item">
-              <span className="hero-metric-num">&lt; 150ms</span>
-              <span className="hero-metric-lbl">Telemetry Inference Latency</span>
-            </div>
-            <div className="hero-metric-item">
-              <span className="hero-metric-num">50+ Hrs</span>
-              <span className="hero-metric-lbl">Early Warning Horizon</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Hero Right: Live Telemetry Preview Card */}
-        <div className="hero-preview-card">
-          <div className="preview-card-header">
-            <div>
-              <span className="preview-title">ASSET #A001 &bull; Sentinel-HUMS-V1</span>
-              <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Main Depot Sector 4 &bull; Active HUMS Stream</div>
-            </div>
-            <div className="preview-pill">
-              <CheckCircle2 size={12} />
-              <span>MISSION READY</span>
-            </div>
-          </div>
-
-          <div className="preview-gauges-grid">
-            <div className="preview-gauge-card">
-              <span className="gauge-lbl">Vibration</span>
-              <span className="gauge-val">{telemetry.vibration} <span style={{ fontSize: '12px', color: '#737373' }}>g</span></span>
-              <span className="gauge-status-text" style={{ color: 'var(--color-success)' }}>Nominal Baseline</span>
+          {/* Wide Centered Key Metric Highlights with Header */}
+          <div className="hero-metrics-container">
+            <div className="metrics-strip-header">
+              <span className="metrics-strip-tag">OPERATIONAL BENCHMARKS</span>
+              <span className="metrics-strip-sub">Validated across active combat aircraft, armor, and marine turbines</span>
             </div>
 
-            <div className="preview-gauge-card">
-              <span className="gauge-lbl">Core Temp</span>
-              <span className="gauge-val">{telemetry.temp} <span style={{ fontSize: '12px', color: '#737373' }}>°C</span></span>
-              <span className="gauge-status-text" style={{ color: 'var(--color-success)' }}>Thermal Equilibrium</span>
-            </div>
-
-            <div className="preview-gauge-card">
-              <span className="gauge-lbl">Oil Pressure</span>
-              <span className="gauge-val">{telemetry.pressure} <span style={{ fontSize: '12px', color: '#737373' }}>psi</span></span>
-              <span className="gauge-status-text" style={{ color: 'var(--color-success)' }}>Optimal Flow</span>
-            </div>
-
-            <div className="preview-gauge-card">
-              <span className="gauge-lbl">Hydraulics</span>
-              <span className="gauge-val">{telemetry.hydraulics} <span style={{ fontSize: '12px', color: '#737373' }}>bar</span></span>
-              <span className="gauge-status-text" style={{ color: 'var(--color-success)' }}>Bus Nominal</span>
-            </div>
-          </div>
-
-          <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '12px', color: '#737373' }}>Readiness Score: <strong style={{ color: '#ffffff' }}>94 / 100</strong></span>
-            <span style={{ fontSize: '12px', color: '#737373' }}>Predicted RUL: <strong style={{ color: '#22c55e' }}>240+ Hours</strong></span>
-          </div>
-        </div>
-      </section>
-
-      {/* Trust / Value Strip */}
-      <section className="landing-value-strip">
-        <div className="value-strip-container">
-          <div className="value-strip-item">
-            <div className="value-icon-box"><Activity size={20} /></div>
-            <div>
-              <div className="value-item-title">Real-time Health</div>
-              <div className="value-item-desc">Continuous telemetry synthesis across all mechanical and electrical subsystems.</div>
-            </div>
-          </div>
-
-          <div className="value-strip-item">
-            <div className="value-icon-box"><TrendingUp size={20} /></div>
-            <div>
-              <div className="value-item-title">Predictive Risk</div>
-              <div className="value-item-desc">Multi-horizon prognostic models isolating catastrophic failure probabilities.</div>
-            </div>
-          </div>
-
-          <div className="value-strip-item">
-            <div className="value-icon-box"><Wrench size={20} /></div>
-            <div>
-              <div className="value-item-title">Intelligent Maintenance</div>
-              <div className="value-item-desc">Automated work orders and depot directives prioritized by mission impact.</div>
-            </div>
-          </div>
-
-          <div className="value-strip-item">
-            <div className="value-icon-box"><Shield size={20} /></div>
-            <div>
-              <div className="value-item-title">Mission Readiness</div>
-              <div className="value-item-desc">Objective operational clearance gates preventing in-field breakdowns.</div>
+            <div className="hero-metrics-strip centered">
+              <div className="hero-metric-item">
+                <span className="hero-metric-num">99.4%</span>
+                <span className="hero-metric-lbl">Mission Readiness Rate</span>
+                <span className="hero-metric-sub">Standard defense target</span>
+              </div>
+              <div className="hero-metric-item">
+                <span className="hero-metric-num">&lt; 120ms</span>
+                <span className="hero-metric-lbl">Telemetry Inference</span>
+                <span className="hero-metric-sub">Real-time HUMS bus</span>
+              </div>
+              <div className="hero-metric-item">
+                <span className="hero-metric-num">50+ Hrs</span>
+                <span className="hero-metric-lbl">Early Warning Horizon</span>
+                <span className="hero-metric-sub">Pre-emptive depot lead</span>
+              </div>
+              <div className="hero-metric-item">
+                <span className="hero-metric-num">53</span>
+                <span className="hero-metric-lbl">Connected Fleet Units</span>
+                <span className="hero-metric-sub">Air, Land &amp; Marine</span>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* How SentinelAI Works (4-step flow) */}
-      <section id="workflow" className="landing-section">
+      {/* PART 01: Interactive Telemetry Demo Cockpit HUD (Visible After Scroll) */}
+      <section id="demo-section" className="landing-section demo-section-wrapper">
         <div className="section-head">
-          <div className="section-tag">Operational Pipeline</div>
-          <h2 className="section-main-title">How SentinelAI Works</h2>
+          <div className="section-step-indicator">
+            <span className="step-indicator-dot" />
+            <span>PART 01 &bull; INTERACTIVE DEMO HUD</span>
+          </div>
+          <h2 className="section-main-title">Live Asset Telemetry &amp; Diagnostics Console</h2>
           <p className="section-main-sub">
-            From sensor bus ingestion to commanding depot interventions — a closed-loop intelligence architecture.
+            Test real-time sensor streams across combat fighters, transport helicopters, and naval propulsion units. 
+            Toggle anomaly simulations below to observe automated health re-scoring, vibration waveforms, and depot grounding directives in action.
+          </p>
+        </div>
+
+        <div className="hero-cockpit-card demo-fullwidth">
+          {/* Cockpit Top Bar */}
+          <div className="cockpit-topbar">
+            <div className="cockpit-asset-selector">
+              <span className="selector-lead-lbl">SELECT ASSET:</span>
+              {['A001', 'A003', 'A007'].map((key) => (
+                <button
+                  key={key}
+                  className={`cockpit-tab-btn ${selectedAssetKey === key ? 'active' : ''}`}
+                  onClick={() => {
+                    setSelectedAssetKey(key);
+                    setSimulateAnomaly(false);
+                  }}
+                >
+                  <span className="tab-asset-dot" />
+                  <span>{key} ({assetProfiles[key].name.split(' ')[0]})</span>
+                </button>
+              ))}
+            </div>
+
+            <div className={`cockpit-status-tag ${currentStatusClass}`}>
+              {currentStatusClass === 'ready' && <CheckCircle2 size={13} />}
+              {currentStatusClass === 'degraded' && <AlertTriangle size={13} />}
+              {currentStatusClass === 'critical' && <AlertOctagon size={13} />}
+              <span>{currentStatus}</span>
+            </div>
+          </div>
+
+          {/* Cockpit Asset Identity */}
+          <div className="cockpit-identity-row">
+            <div>
+              <div className="cockpit-asset-code">{activeProfile.code} &bull; {activeProfile.name}</div>
+              <div className="cockpit-asset-meta">{activeProfile.type} &bull; {activeProfile.depot}</div>
+            </div>
+
+            {/* Circular Readiness Gauge */}
+            <div className="cockpit-radial-gauge">
+              <div
+                className="radial-score-val"
+                style={{
+                  color: currentScore >= 70
+                    ? 'var(--color-success, #22c55e)'
+                    : currentScore >= 40
+                    ? 'var(--color-warning, #eab308)'
+                    : 'var(--color-danger, #ef4444)'
+                }}
+              >
+                {currentScore}%
+              </div>
+              <div className="radial-score-lbl">READINESS</div>
+            </div>
+          </div>
+
+          {/* Main Cockpit Split Layout: Left = Square Box Line Chart, Right = 2x2 Gauges + Directive + Actions */}
+          <div className="cockpit-split-layout">
+            {/* Left Column: Square Box Line Chart */}
+            <div className="cockpit-square-chart-card">
+              <div className="chart-square-header">
+                <div className="chart-header-info">
+                  <span className="chart-title">
+                    <Activity size={14} style={{ color: chartData.isDanger ? '#ef4444' : '#22c55e' }} />
+                    <span>TELEMETRY TREND ANALYSIS</span>
+                  </span>
+                  <span className="chart-subtitle">
+                    STATUS: <strong style={{ color: chartData.isDanger ? '#ef4444' : '#22c55e' }}>{chartData.isDanger ? 'EXCEEDANCE DETECTED' : 'NOMINAL STABLE'}</strong>
+                  </span>
+                </div>
+
+                {/* Metric Switcher Tabs */}
+                <div className="chart-metric-tabs">
+                  <button
+                    type="button"
+                    className={`chart-tab-btn ${selectedChartMetric === 'vibration' ? 'active' : ''}`}
+                    onClick={() => setSelectedChartMetric('vibration')}
+                  >
+                    Vibration
+                  </button>
+                  <button
+                    type="button"
+                    className={`chart-tab-btn ${selectedChartMetric === 'temp' ? 'active' : ''}`}
+                    onClick={() => setSelectedChartMetric('temp')}
+                  >
+                    Core Temp
+                  </button>
+                  <button
+                    type="button"
+                    className={`chart-tab-btn ${selectedChartMetric === 'pressure' ? 'active' : ''}`}
+                    onClick={() => setSelectedChartMetric('pressure')}
+                  >
+                    Oil PSI
+                  </button>
+                </div>
+              </div>
+
+              {/* Square Interactive SVG Line Chart */}
+              <div className="chart-canvas-wrap-square">
+                <svg className="chart-svg" viewBox="0 0 380 185" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={chartData.isDanger ? '#ef4444' : '#22c55e'} stopOpacity="0.25" />
+                      <stop offset="100%" stopColor={chartData.isDanger ? '#ef4444' : '#22c55e'} stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Horizontal Reference Grid Lines */}
+                  <line x1="45" y1="16" x2="355" y2="16" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
+                  <line x1="45" y1="59" x2="355" y2="59" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
+                  <line x1="45" y1="102" x2="355" y2="102" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
+                  <line x1="45" y1="145" x2="355" y2="145" stroke="rgba(255,255,255,0.12)" />
+
+                  {/* Y-Axis Value Labels */}
+                  <text x="38" y="19" fill="#737373" fontSize="9" textAnchor="end" fontFamily="var(--font-family-mono)">{chartData.max}</text>
+                  <text x="38" y="105" fill="#737373" fontSize="9" textAnchor="end" fontFamily="var(--font-family-mono)">{((chartData.max + chartData.min) / 2).toFixed(0)}</text>
+                  <text x="38" y="148" fill="#737373" fontSize="9" textAnchor="end" fontFamily="var(--font-family-mono)">{chartData.min}</text>
+
+                  {/* Safety / Critical Threshold Dashed Line */}
+                  <line x1="45" y1={threshY} x2="355" y2={threshY} stroke="#ef4444" strokeDasharray="4 4" strokeWidth="1.2" opacity="0.8" />
+                  <text x="350" y={Math.max(13, threshY - 3)} fill="#ef4444" fontSize="8" textAnchor="end" fontFamily="var(--font-family-mono)" fontWeight="700">
+                    LIMIT {chartData.threshold} {chartData.unit}
+                  </text>
+
+                  {/* Area Gradient Under Line */}
+                  <path d={areaPathD} fill="url(#chartGradient)" />
+
+                  {/* Main Trend Line Path */}
+                  <path
+                    d={linePathD}
+                    fill="none"
+                    stroke={chartData.isDanger ? '#ef4444' : '#22c55e'}
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+
+                  {/* Historical Data Node Circles */}
+                  {chartCoords.map((pt, idx) => (
+                    <circle
+                      key={idx}
+                      cx={pt.x}
+                      cy={pt.y}
+                      r={idx === chartCoords.length - 1 ? 4 : 2.8}
+                      fill="#0b0b0b"
+                      stroke={chartData.isDanger ? '#ef4444' : '#22c55e'}
+                      strokeWidth="1.8"
+                    />
+                  ))}
+
+                  {/* Live Current Reading Node & Value Tooltip */}
+                  <circle cx={chartCoords[5].x} cy={chartCoords[5].y} r="7.5" fill={chartData.isDanger ? '#ef4444' : '#22c55e'} opacity="0.22" />
+                  <circle cx={chartCoords[5].x} cy={chartCoords[5].y} r="3.8" fill={chartData.isDanger ? '#ef4444' : '#22c55e'} />
+                  <text
+                    x={chartCoords[5].x}
+                    y={Math.max(13, chartCoords[5].y - 8)}
+                    fill="#ffffff"
+                    fontSize="10"
+                    textAnchor="middle"
+                    fontFamily="var(--font-family-mono)"
+                    fontWeight="800"
+                  >
+                    {chartData.values[5]} {chartData.unit}
+                  </text>
+
+                  {/* X-Axis Time Markers */}
+                  {['-50s', '-40s', '-30s', '-20s', '-10s', 'LIVE'].map((t, idx) => (
+                    <text
+                      key={idx}
+                      x={xPositions[idx]}
+                      y="166"
+                      fill={idx === 5 ? (chartData.isDanger ? '#ef4444' : '#22c55e') : '#666666'}
+                      fontSize="8.5"
+                      textAnchor="middle"
+                      fontFamily="var(--font-family-mono)"
+                      fontWeight={idx === 5 ? '700' : '500'}
+                    >
+                      {t}
+                    </text>
+                  ))}
+                </svg>
+              </div>
+
+              {/* Square Chart Live Footer Readout */}
+              <div className="chart-square-footer">
+                <div className="square-footer-metric">
+                  <span className="lbl">LIVE VALUE</span>
+                  <span className="val" style={{ color: chartData.isDanger ? '#ef4444' : '#22c55e' }}>
+                    {chartData.values[5]} {chartData.unit}
+                  </span>
+                </div>
+                <div className="square-footer-metric">
+                  <span className="lbl">THRESHOLD</span>
+                  <span className="val">{chartData.threshold} {chartData.unit}</span>
+                </div>
+                <div className="square-footer-metric">
+                  <span className="lbl">STATUS</span>
+                  <span className="val status" style={{ color: chartData.isDanger ? '#ef4444' : '#22c55e' }}>
+                    {chartData.isDanger ? 'EXCEEDANCE' : 'OPTIMAL'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: 2x2 Telemetry Gauges Grid + Directive + Controls */}
+            <div className="cockpit-right-column">
+              <div className="cockpit-telemetry-grid square-2x2">
+                <div className="cockpit-gauge-tile">
+                  <div className="gauge-label-row">
+                    <span>Vibration</span>
+                    <span className="gauge-unit">ISO 10816</span>
+                  </div>
+                  <div className="gauge-value-row">
+                    <span
+                      className="gauge-number"
+                      style={{
+                        color: telemetry.vibration > 3.0
+                          ? 'var(--color-danger, #ef4444)'
+                          : telemetry.vibration > 2.0
+                          ? 'var(--color-warning, #eab308)'
+                          : '#ffffff'
+                      }}
+                    >
+                      {telemetry.vibration}
+                    </span>
+                    <span className="gauge-meas">g-RMS</span>
+                  </div>
+                  <div className="gauge-bar-track">
+                    <div
+                      className="gauge-bar-fill"
+                      style={{
+                        width: `${Math.min(100, (telemetry.vibration / 6.0) * 100)}%`,
+                        backgroundColor: telemetry.vibration > 3.0
+                          ? '#ef4444'
+                          : telemetry.vibration > 2.0
+                          ? '#eab308'
+                          : '#ffffff'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="cockpit-gauge-tile">
+                  <div className="gauge-label-row">
+                    <span>Core Temp</span>
+                    <span className="gauge-unit">Thermocouple</span>
+                  </div>
+                  <div className="gauge-value-row">
+                    <span
+                      className="gauge-number"
+                      style={{
+                        color: telemetry.temp > 95
+                          ? 'var(--color-danger, #ef4444)'
+                          : telemetry.temp > 85
+                          ? 'var(--color-warning, #eab308)'
+                          : '#ffffff'
+                      }}
+                    >
+                      {telemetry.temp}
+                    </span>
+                    <span className="gauge-meas">°C</span>
+                  </div>
+                  <div className="gauge-bar-track">
+                    <div
+                      className="gauge-bar-fill"
+                      style={{
+                        width: `${Math.min(100, ((telemetry.temp - 50) / 70) * 100)}%`,
+                        backgroundColor: telemetry.temp > 95
+                          ? '#ef4444'
+                          : telemetry.temp > 85
+                          ? '#eab308'
+                          : '#ffffff'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="cockpit-gauge-tile">
+                  <div className="gauge-label-row">
+                    <span>Oil Pressure</span>
+                    <span className="gauge-unit">Manifold</span>
+                  </div>
+                  <div className="gauge-value-row">
+                    <span
+                      className="gauge-number"
+                      style={{
+                        color: telemetry.pressure < 1900
+                          ? 'var(--color-danger, #ef4444)'
+                          : '#ffffff'
+                      }}
+                    >
+                      {telemetry.pressure}
+                    </span>
+                    <span className="gauge-meas">psi</span>
+                  </div>
+                  <div className="gauge-bar-track">
+                    <div
+                      className="gauge-bar-fill"
+                      style={{
+                        width: `${Math.min(100, (telemetry.pressure / 2400) * 100)}%`,
+                        backgroundColor: telemetry.pressure < 1900
+                          ? '#ef4444'
+                          : '#ffffff'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="cockpit-gauge-tile">
+                  <div className="gauge-label-row">
+                    <span>Hydraulics Bus</span>
+                    <span className="gauge-unit">Actuators</span>
+                  </div>
+                  <div className="gauge-value-row">
+                    <span
+                      className="gauge-number"
+                      style={{
+                        color: telemetry.hydraulics < 125
+                          ? 'var(--color-danger, #ef4444)'
+                          : '#ffffff'
+                      }}
+                    >
+                      {telemetry.hydraulics}
+                    </span>
+                    <span className="gauge-meas">bar</span>
+                  </div>
+                  <div className="gauge-bar-track">
+                    <div
+                      className="gauge-bar-fill"
+                      style={{
+                        width: `${Math.min(100, (telemetry.hydraulics / 180) * 100)}%`,
+                        backgroundColor: telemetry.hydraulics < 125
+                          ? '#ef4444'
+                          : '#ffffff'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Directive Strip */}
+              <div className="cockpit-directive-box">
+                <div className="directive-header">
+                  <span className="directive-tag">ACTIVE MISSION DIRECTIVE</span>
+                  <span className="directive-rul">
+                    FORECAST RUL: <strong style={{ color: simulateAnomaly ? '#ef4444' : 'var(--color-success, #22c55e)' }}>{simulateAnomaly ? '4.5 Hours' : activeProfile.rul}</strong>
+                  </span>
+                </div>
+                <p className="directive-text">
+                  {simulateAnomaly
+                    ? 'CRITICAL ALERT: Ground asset immediately. Perform comprehensive diagnostic teardown on Engine Bearing array.'
+                    : activeProfile.directive}
+                </p>
+              </div>
+
+              {/* Cockpit Interactive Anomaly Simulator Controller */}
+              <div className="cockpit-controls-bar">
+                <button
+                  type="button"
+                  className={`simulate-btn ${simulateAnomaly ? 'danger' : 'normal'}`}
+                  onClick={() => setSimulateAnomaly((prev) => !prev)}
+                >
+                  <Zap size={14} />
+                  <span>{simulateAnomaly ? 'Clear Anomaly' : 'Simulate Anomaly'}</span>
+                </button>
+
+                <button type="button" className="cockpit-inspect-btn" onClick={onEnter}>
+                  <span>Launch Command Center</span>
+                  <ArrowRight size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* PART 02: Closed-Loop Architecture (4-step pipeline) */}
+      <section id="pipeline" className="landing-section">
+        <div className="section-head">
+          <div className="section-step-indicator">
+            <span className="step-indicator-dot" />
+            <span>PART 02 &bull; END-TO-END PIPELINE</span>
+          </div>
+          <h2 className="section-main-title">How SentinelAI Processes Mission Telemetry</h2>
+          <p className="section-main-sub">
+            From raw high-frequency sensor streams to autonomous depot work orders — a closed-loop architecture operating in sub-second intervals.
           </p>
         </div>
 
         <div className="workflow-steps-grid">
-          {workflowSteps.map((step) => (
-            <div key={step.step} className="workflow-step-card">
-              <div className="step-num-badge">{step.step}</div>
-              <h3 className="step-card-title">{step.title}</h3>
-              <p className="step-card-desc">{step.desc}</p>
+          {workflowStages.map((stage) => (
+            <div key={stage.step} className="workflow-step-card">
+              <div className="step-badge-row">
+                <span className="step-num-badge">{stage.step}</span>
+                <span className="step-subtitle">{stage.subtitle}</span>
+              </div>
+              <h3 className="step-card-title">{stage.name}</h3>
+              <p className="step-card-desc">{stage.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Core Capabilities (6 cards) */}
-      <section id="capabilities" className="landing-section" style={{ backgroundColor: '#050505', borderTop: '1px solid #1a1a1a', borderBottom: '1px solid #1a1a1a' }}>
+      {/* PART 03: Enterprise Capabilities (6 Cards) */}
+      <section id="capabilities" className="landing-section">
         <div className="section-head">
-          <div className="section-tag">Enterprise Capabilities</div>
-          <h2 className="section-main-title">Built for Mission-Critical Reliability</h2>
+          <div className="section-step-indicator">
+            <span className="step-indicator-dot" />
+            <span>PART 03 &bull; CORE CAPABILITIES</span>
+          </div>
+          <h2 className="section-main-title">Operational Capabilities for High-Consequence Fleets</h2>
           <p className="section-main-sub">
-            Engineered specifically for fleet commanders, maintenance crews, and reliability engineers.
+            Built specifically for fleet commanders, maintenance supervisors, and reliability engineering teams operating zero-fail equipment.
           </p>
         </div>
 
@@ -288,8 +835,13 @@ export default function LandingPage({ onEnter }) {
             const Icon = cap.icon;
             return (
               <div key={idx} className="capability-card">
-                <div className="capability-icon-wrap">
-                  <Icon size={22} />
+                <div className="cap-top-row">
+                  <div className="capability-icon-wrap">
+                    <Icon size={20} />
+                  </div>
+                  <span className="cap-metric-pill">
+                    {cap.metric}
+                  </span>
                 </div>
                 <h3 className="capability-title">{cap.title}</h3>
                 <p className="capability-desc">{cap.desc}</p>
@@ -299,71 +851,128 @@ export default function LandingPage({ onEnter }) {
         </div>
       </section>
 
-      {/* Readiness Progression Section */}
-      <section id="readiness" className="landing-section">
+      {/* PART 04: Operational Maturity Progression */}
+      <section id="maturity" className="landing-section">
         <div className="section-head">
-          <div className="section-tag">Operational Maturity</div>
-          <h2 className="section-main-title">The Evolution to Mission Readiness</h2>
+          <div className="section-step-indicator">
+            <span className="step-indicator-dot" />
+            <span>PART 04 &bull; OPERATIONAL EVOLUTION</span>
+          </div>
+          <h2 className="section-main-title">The Path to Deterministic Readiness</h2>
           <p className="section-main-sub">
-            Transforming legacy break-fix maintenance into proactive operational assurance.
+            A 4-phase transformation roadmap showing how defence organizations transition from chaotic break-fix firefighting to automated operational clearance.
           </p>
         </div>
 
         <div className="progression-flow">
           <div className="progression-tier">
-            <span className="tier-state-tag" style={{ color: '#737373' }}>Phase 1</span>
+            <span className="tier-state-tag" style={{ color: '#737373' }}>Phase 1 &bull; Legacy</span>
             <h4 className="tier-title">Reactive Maintenance</h4>
-            <p className="tier-desc">Unplanned downtime, high emergency repair costs, and in-service mission failures.</p>
+            <p className="tier-desc">Unplanned groundings, emergency spare part expediting, and unexpected in-field failures without warning.</p>
           </div>
 
           <div className="progression-tier">
-            <span className="tier-state-tag" style={{ color: '#eab308' }}>Phase 2</span>
-            <h4 className="tier-title">Condition Awareness</h4>
-            <p className="tier-desc">Threshold alarms and visual telemetry dashboards without predictive horizon forecasting.</p>
+            <span className="tier-state-tag" style={{ color: '#eab308' }}>Phase 2 &bull; Thresholds</span>
+            <h4 className="tier-title">Condition Monitoring</h4>
+            <p className="tier-desc">Static threshold exceedance alerts without prognostic time horizon forecasting or failure causality.</p>
           </div>
 
           <div className="progression-tier">
-            <span className="tier-state-tag" style={{ color: '#f97316' }}>Phase 3</span>
-            <h4 className="tier-title">Predictive Maintenance</h4>
-            <p className="tier-desc">Remaining Useful Life estimation and degradation curve modeling before damage cascades.</p>
+            <span className="tier-state-tag" style={{ color: '#a3a3a3' }}>Phase 3 &bull; Prognostics</span>
+            <h4 className="tier-title">Predictive Prognostics</h4>
+            <p className="tier-desc">Statistical Remaining Useful Life (RUL) modeling predicting degradation curves 50+ hours in advance.</p>
           </div>
 
-          <div className="progression-tier current">
-            <span className="tier-state-tag" style={{ color: '#22c55e' }}>Phase 4 &bull; Active</span>
-            <h4 className="tier-title">Mission Readiness</h4>
-            <p className="tier-desc">Deterministic clearance certification, automated depot orchestration, and zero surprise failures.</p>
+          <div className="progression-tier active-tier">
+            <span className="tier-state-tag active-tag">Phase 4 &bull; Active Standard</span>
+            <h4 className="tier-title">Mission Readiness Assurance</h4>
+            <p className="tier-desc">Deterministic clearance certification, automated depot orchestration, and guaranteed operational availability.</p>
           </div>
         </div>
       </section>
 
-      {/* Final Call to Action Banner */}
-      <section className="landing-cta-banner">
-        <h2 className="cta-banner-heading">Ready to Secure Fleet Availability?</h2>
-        <p className="cta-banner-sub">
-          Deploy SentinelAI for real-time telemetry diagnostics, predictive risk horizons, and operational certainty.
-        </p>
-        <button className="hero-cta-btn primary" onClick={onEnter} style={{ margin: '0 auto' }}>
-          Access SentinelAI Platform
-          <ArrowRight size={16} />
-        </button>
+      {/* PART 05: Security & Compliance Credentials */}
+      <section id="compliance" className="landing-section">
+        <div className="section-head">
+          <div className="section-step-indicator">
+            <span className="step-indicator-dot" />
+            <span>PART 05 &bull; SECURITY &amp; COMPLIANCE</span>
+          </div>
+          <h2 className="section-main-title">Defense Standards &amp; Data Sovereignty</h2>
+          <p className="section-main-sub">
+            Architected to satisfy sovereign defence compliance requirements, secure communications, and multi-sensor protocols.
+          </p>
+        </div>
+
+        <div className="compliance-banner-grid">
+          <div className="compliance-card">
+            <Lock size={20} className="compliance-icon" />
+            <div>
+              <div className="compliance-title">Top Secret / SCI Capable</div>
+              <div className="compliance-sub">Role-based access control with cryptographic clearance boundaries and immutable audit trails.</div>
+            </div>
+          </div>
+
+          <div className="compliance-card">
+            <Shield size={20} className="compliance-icon" />
+            <div>
+              <div className="compliance-title">Air-Gapped Deployment</div>
+              <div className="compliance-sub">Self-contained offline model inference without external cloud dependencies or telemetry leaks.</div>
+            </div>
+          </div>
+
+          <div className="compliance-card">
+            <Radio size={20} className="compliance-icon" />
+            <div>
+              <div className="compliance-title">MIL-STD Telemetry Bus</div>
+              <div className="compliance-sub">Native compatibility with MIL-STD-1553, ARINC 429, and commercial HUMS data protocols.</div>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* Enterprise Footer */}
+      {/* PART 06: Final Call to Action Banner */}
+      <section className="landing-cta-banner">
+        <div className="cta-banner-content">
+          <div className="cta-brand-badge">
+            <Sparkles size={14} style={{ color: '#ffffff' }} />
+            <span>PART 06 &bull; COMMAND CENTER ACCESS</span>
+          </div>
+          <h2 className="cta-banner-heading">Ready to Eliminate Unplanned Fleet Downtime?</h2>
+          <p className="cta-banner-sub">
+            Deploy SentinelAI across your air, land armor, or naval assets. Gain deterministic pre-sortie clearance and predictive depot maintenance intelligence today.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="hero-cta-btn primary" onClick={onEnter}>
+              <Terminal size={17} />
+              <span>Launch Command Center</span>
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Modern Enterprise Footer (Full Screen Width) */}
       <footer className="landing-footer">
         <div className="footer-inner">
           <div className="landing-brand">
-            <img src="/logo.png" alt="SentinelAI" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
-            <span style={{ fontWeight: 700, letterSpacing: '0.05em' }}>SENTINELAI</span>
+            <div className="brand-shield-box" style={{ width: '28px', height: '28px' }}>
+              <img src="/logo.png" alt="SentinelAI" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+            </div>
+            <div>
+              <span style={{ fontWeight: 700, letterSpacing: '0.05em' }}>SENTINELAI</span>
+              <span style={{ fontSize: '11px', color: '#737373', marginLeft: '8px' }}>Operational Defense Systems</span>
+            </div>
           </div>
 
           <div className="footer-copy">
-            &copy; 2026 SentinelAI Defence &amp; Fleet Systems. All rights reserved.
+            &copy; 2026 SentinelAI Fleet Telemetry Systems. Strictly restricted operational telemetry.
           </div>
 
           <div className="footer-links">
-            <button onClick={onEnter} style={{ color: '#a3a3a3' }}>Sign In</button>
+            <button onClick={onEnter} className="footer-sign-in-link">Secure Portal Access</button>
             <span style={{ color: '#333333' }}>&bull;</span>
-            <span style={{ color: '#737373' }}>Security Classification: RESTRICTED</span>
+            <span style={{ color: '#737373', fontSize: '12px' }}>RESTRICTED / OPS CLEARANCE</span>
           </div>
         </div>
       </footer>

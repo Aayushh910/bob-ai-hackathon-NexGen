@@ -8,12 +8,13 @@ import {
   CheckCircle2,
   AlertCircle,
   ArrowRight,
+  ArrowLeft,
   ShieldCheck,
   Key
 } from 'lucide-react';
 import TacticalBackground from './TacticalBackground';
 
-export default function LoginPage({ onLogin }) {
+export default function LoginPage({ onLogin, onBack }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -54,6 +55,16 @@ export default function LoginPage({ onLogin }) {
     <div className="auth-page-shell">
       {/* Tactical Dynamic Background Animation */}
       <TacticalBackground />
+
+      {/* Back to Landing Page Button */}
+      {onBack && (
+        <div className="auth-back-nav">
+          <button type="button" className="auth-back-btn" onClick={onBack}>
+            <ArrowLeft size={14} />
+            <span>Back to Landing Page</span>
+          </button>
+        </div>
+      )}
 
       <div className="auth-split-card">
         {/* Left Side: Brand & Product Value */}

@@ -157,7 +157,7 @@ export default function App() {
   };
 
   if (page === 'landing') return <LandingPage onEnter={() => setPage('login')} />;
-  if (page === 'login') return <LoginPage onLogin={handleLogin} />;
+  if (page === 'login') return <LoginPage onLogin={handleLogin} onBack={() => setPage('landing')} />;
 
   const isHealthy = healthData?.status === 'healthy';
 

@@ -92,8 +92,7 @@
 }
 
 .sentinel-sidebar.collapsed .brand-identity-text {
-  opacity: 0;
-  pointer-events: none;
+  display: none;
 }
 
 .brand-main-title {
@@ -285,7 +284,20 @@
   text-overflow: ellipsis;
 }
 
+.sidebar-footer-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+}
+
+.sentinel-sidebar.collapsed .sidebar-footer-actions {
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
 .sidebar-collapse-trigger {
+  flex: 1;
   height: 32px;
   display: flex;
   align-items: center;
@@ -295,12 +307,40 @@
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   border: 1px solid var(--color-border);
-  transition: background-color var(--transition-fast), color var(--transition-fast);
+  background-color: transparent;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
 }
 
-.sidebar-collapse-trigger:hover {
+.sentinel-sidebar.collapsed .sidebar-collapse-trigger {
+  width: 100%;
+  flex: none;
+}
+
+.sidebar-logout-btn {
+  height: 32px;
+  width: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  background-color: transparent;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.sentinel-sidebar.collapsed .sidebar-logout-btn {
+  width: 100%;
+}
+
+.sidebar-collapse-trigger:hover,
+.sidebar-logout-btn:hover {
   background-color: var(--color-surface-hover);
   color: var(--color-text);
+  border-color: var(--color-border-bright);
 }
 
 /* Main Area Layout */

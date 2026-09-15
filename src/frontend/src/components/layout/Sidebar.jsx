@@ -124,7 +124,7 @@ export default function Sidebar({
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '6px' }}>
+        <div className="sidebar-footer-actions">
           <button
             className="sidebar-collapse-trigger"
             onClick={onToggleCollapse}
@@ -136,11 +136,10 @@ export default function Sidebar({
           </button>
 
           <button
-            className="sidebar-collapse-trigger"
+            className="sidebar-logout-btn"
             onClick={onLogout}
             title="Secure Logout"
             aria-label="Secure Logout"
-            style={{ width: isCollapsed ? '100%' : 'auto', minWidth: '36px' }}
           >
             <LogOut size={15} />
           </button>
