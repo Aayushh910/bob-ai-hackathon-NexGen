@@ -29,7 +29,7 @@ export default function OverviewView() {
   const [error, setError] = useState(null);
 
   // Copilot Query State
-  const [queryText, setQueryText] = useState('Which assets need immediate attention?');
+  const [queryText, setQueryText] = useState('');
   const [copilotLoading, setCopilotLoading] = useState(false);
   const [copilotResponse, setCopilotResponse] = useState(null);
 
@@ -116,7 +116,6 @@ export default function OverviewView() {
 
   useEffect(() => {
     loadData();
-    handleCopilotSubmit('Which assets need immediate attention?');
 
     const handleUpdate = () => {
       loadData();

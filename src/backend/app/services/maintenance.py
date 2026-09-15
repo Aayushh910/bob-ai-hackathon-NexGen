@@ -285,10 +285,26 @@ class MaintenanceIntelligenceEngine:
     ) -> List[MaintenanceQueueItem]:
         """
         Retrieves fleet assets ranked by intervention urgency (CRITICAL -> HIGH -> MEDIUM -> LOW).
+        Optimized with batched queries to prevent remote DB connection latency.
         """
-        all_assets = asset_repo.get_multi(db, skip=0, limit=1000)
-        items: List[MaintenanceQueueItem] = []
+        import time
+        now_ts = time.time()
+        cache_key = f"{priority}_{due_status}_{search}_{skip}_{limit}"
+        if not hasattr(self, "_queue_cache"):
+            self._queue_cache = {}
+        cached = self._queue_cache.get(cache_key)
+        if cached and (now_ts - cached["ts"]) < 30.0:
+            return cached["data"]
 
+        all_assets = asset_repo.get_multi(db, skip=0, limit=1000)
+        from app.repositories.readiness import readiness_repository
+        readiness_map = readiness_repository.get_latest_assessment_map(db)
+        open_recs_list = recommendation_repository.list_recommendations(db, status="OPEN", limit=1000)[0]
+        recs_count_by_asset: Dict[int, int] = {}
+        for r in open_recs_list:
+            recs_count_by_asset[r.asset_id] = recs_count_by_asset.get(r.asset_id, 0) + 1
+
+        items: List[MaintenanceQueueItem] = []
         priority_order = {"CRITICAL": 1, "HIGH": 2, "MEDIUM": 3, "LOW": 4}
 
         for asset in all_assets:
@@ -302,45 +318,93 @@ class MaintenanceIntelligenceEngine:
                 ):
                     continue
 
-            try:
-                plan = self.generate_intervention_plan(db, asset.id)
-                readiness = readiness_service.get_latest_assessment(db, asset.id)
+            readiness = readiness_map.get(asset.id)
+            if readiness:
+                state = (readiness.readiness_state or "READY").upper()
+                fail_prob = readiness.failure_probability or 0.0
+                rul_hours = readiness.rul_hours
+                is_anom = readiness.is_anomaly or False
+                failure_mode = readiness.predicted_failure_mode or "Thermal variance"
+                target_comp = FAILURE_MODE_COMPONENT_MAP.get(failure_mode, "Engine Subsystem")
 
-                if priority and plan.priority != priority.upper():
-                    continue
-                if due_status and plan.due_status != due_status.upper():
-                    continue
+                if state in ["NOT_READY", "CRITICAL"]:
+                    due_status_calc = "OVERDUE"
+                elif state in ["DEGRADED", "CAUTION"]:
+                    due_status_calc = "DUE"
+                elif (rul_hours is not None and rul_hours < 80.0) or fail_prob >= 0.25:
+                    due_status_calc = "UPCOMING"
+                else:
+                    due_status_calc = "NOMINAL"
 
-                open_recs = len(recommendation_repository.get_active_by_asset(db, asset.id))
+                priority_calc, priority_reason = self.calculate_intervention_priority(
+                    readiness_state=state,
+                    due_status=due_status_calc,
+                    fail_prob=fail_prob,
+                    rul_hours=rul_hours,
+                    is_anomaly=is_anom,
+                    failure_mode=failure_mode
+                )
 
-                items.append(MaintenanceQueueItem(
-                    asset_id=asset.id,
-                    asset_code=asset.asset_code,
-                    asset_type=asset.asset_type,
-                    model=asset.model,
-                    location=asset.location,
-                    priority=plan.priority,
-                    due_status=plan.due_status,
-                    readiness_state=readiness.readiness_state,
-                    target_component=plan.target_component,
-                    failure_probability=readiness.failure_probability,
-                    rul_hours=readiness.rul_hours,
-                    is_anomaly=readiness.is_anomaly,
-                    recommended_action=plan.recommended_action,
-                    open_directives_count=open_recs
-                ))
-            except Exception as e:
-                logger.warning(f"Error compiling maintenance plan for {asset.asset_code}: {e}")
+                if priority_calc == "CRITICAL":
+                    action = f"Ground asset immediately. Perform comprehensive diagnostic teardown on {target_comp}. Replace worn components before mission roster assignment."
+                elif priority_calc == "HIGH":
+                    action = f"Schedule depot inspection for {target_comp} within 48 hours. Inspect telemetry anomalies, verify linkages, and test pressure relief valves."
+                elif priority_calc == "MEDIUM":
+                    action = f"Plan preventative servicing for {target_comp} during upcoming maintenance window. Re-calibrate sensor array."
+                else:
+                    action = "Maintain continuous HUMS telemetry surveillance. Clear for mission deployment."
+            else:
+                state = "READY"
+                due_status_calc = "NOMINAL"
+                priority_calc = "LOW"
+                target_comp = "Engine Subsystem"
+                fail_prob = 0.05
+                rul_hours = 250.0
+                is_anom = False
+                action = "Maintain continuous HUMS telemetry surveillance. Clear for mission deployment."
 
-        # Sort by priority urgency: CRITICAL first, then HIGH, then MEDIUM, then LOW
+            if priority and priority_calc != priority.upper():
+                continue
+            if due_status and due_status_calc != due_status.upper():
+                continue
+
+            open_recs = recs_count_by_asset.get(asset.id, 0)
+
+            items.append(MaintenanceQueueItem(
+                asset_id=asset.id,
+                asset_code=asset.asset_code,
+                asset_type=asset.asset_type,
+                model=asset.model,
+                location=asset.location,
+                priority=priority_calc,
+                due_status=due_status_calc,
+                readiness_state=state,
+                target_component=target_comp,
+                failure_probability=fail_prob,
+                rul_hours=rul_hours,
+                is_anomaly=is_anom,
+                recommended_action=action,
+                open_directives_count=open_recs
+            ))
+
         items.sort(key=lambda x: priority_order.get(x.priority, 5))
-        return items[skip : skip + limit]
+        result = items[skip : skip + limit]
+        self._queue_cache[cache_key] = {"data": result, "ts": now_ts}
+        return result
 
     def get_fleet_summary(self, db: Session) -> MaintenanceFleetSummary:
         """
         Aggregates maintenance KPIs across the entire fleet.
+        Optimized with batched queries to prevent remote DB connection latency.
         """
+        import time
+        now_ts = time.time()
+        if hasattr(self, "_summary_cache") and (now_ts - self._summary_cache.get("ts", 0)) < 30.0:
+            return self._summary_cache["data"]
+
         all_assets = asset_repo.get_multi(db, skip=0, limit=1000)
+        from app.repositories.readiness import readiness_repository
+        readiness_map = readiness_repository.get_latest_assessment_map(db)
         repo_metrics = maintenance_repository.get_fleet_summary_metrics(db)
 
         crit_count = 0
@@ -351,27 +415,49 @@ class MaintenanceIntelligenceEngine:
         requiring_maint = 0
 
         for asset in all_assets:
-            try:
-                plan = self.generate_intervention_plan(db, asset.id)
-                if plan.priority in ["CRITICAL", "HIGH"]:
+            readiness = readiness_map.get(asset.id)
+            if readiness:
+                state = (readiness.readiness_state or "READY").upper()
+                fail_prob = readiness.failure_probability or 0.0
+                rul_hours = readiness.rul_hours
+                is_anom = readiness.is_anomaly or False
+                failure_mode = readiness.predicted_failure_mode or "Thermal variance"
+
+                if state in ["NOT_READY", "CRITICAL"]:
+                    due_status_calc = "OVERDUE"
+                elif state in ["DEGRADED", "CAUTION"]:
+                    due_status_calc = "DUE"
+                elif (rul_hours is not None and rul_hours < 80.0) or fail_prob >= 0.25:
+                    due_status_calc = "UPCOMING"
+                else:
+                    due_status_calc = "NOMINAL"
+
+                priority_calc, _ = self.calculate_intervention_priority(
+                    readiness_state=state,
+                    due_status=due_status_calc,
+                    fail_prob=fail_prob,
+                    rul_hours=rul_hours,
+                    is_anomaly=is_anom,
+                    failure_mode=failure_mode
+                )
+
+                if priority_calc in ["CRITICAL", "HIGH"]:
                     requiring_maint += 1
-                if plan.priority == "CRITICAL":
+                if priority_calc == "CRITICAL":
                     crit_count += 1
-                elif plan.priority == "HIGH":
+                elif priority_calc == "HIGH":
                     high_count += 1
 
-                if plan.due_status == "OVERDUE":
+                if due_status_calc == "OVERDUE":
                     overdue_count += 1
-                elif plan.due_status == "DUE":
+                elif due_status_calc == "DUE":
                     due_count += 1
-                elif plan.due_status == "UPCOMING":
+                elif due_status_calc == "UPCOMING":
                     upcoming_count += 1
-            except Exception:
-                pass
 
         open_directives = len(recommendation_repository.list_recommendations(db, status="OPEN", limit=1000)[0])
 
-        return MaintenanceFleetSummary(
+        summary_res = MaintenanceFleetSummary(
             total_assets_requiring_maintenance=requiring_maint,
             critical_interventions=crit_count,
             high_priority_interventions=high_count,
@@ -382,6 +468,8 @@ class MaintenanceIntelligenceEngine:
             total_historical_records=repo_metrics.get("total_records", 0),
             most_serviced_component=repo_metrics.get("most_serviced_component")
         )
+        self._summary_cache = {"data": summary_res, "ts": now_ts}
+        return summary_res
 
     def get_asset_maintenance_detail(self, db: Session, asset_id: int) -> Dict[str, Any]:
         """

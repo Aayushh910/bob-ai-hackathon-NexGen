@@ -19,16 +19,18 @@ import AssetDetailModal from './AssetDetailModal';
 import ErrorBoundary from '../common/ErrorBoundary';
 
 export default function FleetOverview() {
-  const [assets, setAssets] = useState([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [allAssets, setAllAssets] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('sentinel_all_assets');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) { return []; }
+  });
+  const [loading, setLoading] = useState(() => allAssets.length === 0);
   const [error, setError] = useState(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  const [conditionFilter, setConditionFilter] = useState('');
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 12;
@@ -36,35 +38,29 @@ export default function FleetOverview() {
   // Modal Inspection
   const [selectedAsset, setSelectedAsset] = useState(null);
 
-  // Debounce search input to avoid multi-query thrashing on keystrokes
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
   const fetchAssets = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const skip = (currentPage - 1) * pageSize;
-      const res = await getAssets({
-        skip,
-        limit: pageSize,
-        search: debouncedSearch.trim() || undefined,
-        status: statusFilter || undefined,
-        asset_type: typeFilter || undefined,
-      });
-      setAssets(res.items || []);
-      setTotalCount(res.total || 0);
+      const res = await getAssets({ limit: 150 });
+      const items = res.items || [];
+      setAllAssets(items);
+      try {
+        if (items.length > 0) sessionStorage.setItem('sentinel_all_assets', JSON.stringify(items));
+      } catch (e) {}
     } catch (err) {
       console.error('Failed to fetch assets:', err);
       setError(err.message || 'Unable to retrieve fleet assets from PostgreSQL.');
+      if (allAssets.length === 0) {
+        try {
+          const cached = sessionStorage.getItem('sentinel_all_assets');
+          if (cached) setAllAssets(JSON.parse(cached));
+        } catch (e) {}
+      }
     } finally {
       setLoading(false);
     }
-  }, [currentPage, debouncedSearch, statusFilter, typeFilter]);
+  }, []);
 
   useEffect(() => {
     fetchAssets();
@@ -76,18 +72,13 @@ export default function FleetOverview() {
     return () => window.removeEventListener('sentinel:data-updated', handleUpdate);
   }, [fetchAssets]);
 
-  const totalPages = Math.ceil(totalCount / pageSize) || 1;
-
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    setCurrentPage(1);
-    fetchAssets();
   };
 
   const handleResetFilters = () => {
     setSearchQuery('');
-    setStatusFilter('');
-    setTypeFilter('');
+    setConditionFilter('');
     setCurrentPage(1);
   };
 
@@ -114,6 +105,38 @@ export default function FleetOverview() {
 
     return { label: 'Operational / Ready', badgeStatus: 'READY', score: 85 };
   };
+
+  // Instantaneous multi-parameter filtering
+  const filteredAssets = allAssets.filter((a) => {
+    // 1. Search Query filter (code, model, location, manufacturer)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const codeMatch = (a.asset_code || '').toLowerCase().includes(q);
+      const modelMatch = (a.model || '').toLowerCase().includes(q);
+      const locMatch = (a.location || '').toLowerCase().includes(q);
+      const mfrMatch = (a.manufacturer || '').toLowerCase().includes(q);
+      const typeMatch = (a.asset_type || '').toLowerCase().includes(q);
+      if (!codeMatch && !modelMatch && !locMatch && !mfrMatch && !typeMatch) {
+        return false;
+      }
+    }
+
+    // 2. Operational Condition filter
+    if (conditionFilter) {
+      const cond = getAssetCondition(a);
+      if (conditionFilter === 'READY' && cond.badgeStatus !== 'READY') return false;
+      if (conditionFilter === 'DEGRADED' && cond.badgeStatus !== 'DEGRADED') return false;
+      if (conditionFilter === 'NOT_READY' && cond.badgeStatus !== 'NOT_READY') return false;
+      if (conditionFilter === 'MAINTENANCE' && cond.badgeStatus !== 'MAINTENANCE') return false;
+      if (conditionFilter === 'OFFLINE' && cond.badgeStatus !== 'OFFLINE') return false;
+    }
+
+    return true;
+  });
+
+  const totalCount = filteredAssets.length;
+  const totalPages = Math.ceil(totalCount / pageSize) || 1;
+  const paginatedAssets = filteredAssets.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="fleet-view-container">
@@ -168,59 +191,54 @@ export default function FleetOverview() {
             className="search-input"
             placeholder="Search by asset code (e.g. A001), model, depot location..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
           />
           {searchQuery && (
             <button
               type="button"
               style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}
-              onClick={() => setSearchQuery('')}
+              onClick={() => {
+                setSearchQuery('');
+                setCurrentPage(1);
+              }}
             >
               Clear
             </button>
           )}
         </form>
 
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
           <select
             className="filter-select"
-            value={statusFilter}
+            value={conditionFilter}
             onChange={(e) => {
-              setStatusFilter(e.target.value);
+              setConditionFilter(e.target.value);
               setCurrentPage(1);
             }}
           >
             <option value="">All Operational Conditions</option>
-            <option value="ACTIVE">Active Deployment</option>
-            <option value="MAINTENANCE">In Maintenance</option>
-            <option value="INACTIVE">Inactive / Offline</option>
+            <option value="READY">Operational / Ready (Nominal)</option>
+            <option value="DEGRADED">Degraded Subsystems</option>
+            <option value="NOT_READY">Critical / Ground Hold</option>
+            <option value="MAINTENANCE">In Maintenance Depot</option>
           </select>
 
-          <select
-            className="filter-select"
-            value={typeFilter}
-            onChange={(e) => {
-              setTypeFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-          >
-            <option value="">All Equipment Types</option>
-            <option value="Heavy Equipment">Heavy Equipment</option>
-            <option value="Vehicle">Vehicle</option>
-            <option value="Aircraft">Aircraft</option>
-            <option value="Turbine">Turbine</option>
-          </select>
-
-          {(searchQuery || statusFilter || typeFilter) && (
+          {(searchQuery || conditionFilter) && (
             <button className="secondary-btn" onClick={handleResetFilters} style={{ height: '40px' }}>
               Reset Filters
             </button>
           )}
+          <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginLeft: 'auto' }}>
+            {totalCount} {totalCount === 1 ? 'asset' : 'assets'} matching
+          </span>
         </div>
       </div>
 
       {/* 3. Assets Display: Table or Grid */}
-      {loading ? (
+      {loading && allAssets.length === 0 ? (
         <div style={{ padding: '60px 0', display: 'flex', justifyContent: 'center' }}>
           <LoadingState
             message="Querying Fleet Asset Registry..."
@@ -228,7 +246,14 @@ export default function FleetOverview() {
             size="lg"
           />
         </div>
-      ) : assets.length === 0 ? (
+      ) : error && allAssets.length === 0 ? (
+        <EmptyState
+          title="Telemetry Connection Failed"
+          description={error || "Could not retrieve fleet assets. Click retry to reconnect."}
+          actionText="Retry Connection"
+          onAction={fetchAssets}
+        />
+      ) : filteredAssets.length === 0 ? (
         <EmptyState
           title="No Matching Fleet Assets"
           description="No assets correspond to the specified search keywords or state filters."
@@ -251,7 +276,7 @@ export default function FleetOverview() {
               </tr>
             </thead>
             <tbody>
-              {assets.map((a) => {
+              {paginatedAssets.map((a) => {
                 const cond = getAssetCondition(a);
                 return (
                   <tr key={a.id}>
@@ -334,7 +359,7 @@ export default function FleetOverview() {
         </div>
       ) : (
         <div className="grid-3-col">
-          {assets.map((a) => {
+          {paginatedAssets.map((a) => {
             const cond = getAssetCondition(a);
             return (
               <div key={a.id} className="sentinel-card hoverable">
@@ -402,7 +427,7 @@ export default function FleetOverview() {
       {/* 4. Pagination */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '20px', padding: '12px 0' }}>
         <span style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>
-          Showing <strong>{assets.length}</strong> of <strong>{totalCount}</strong> assets registered in database
+          Showing <strong>{paginatedAssets.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} - {Math.min(currentPage * pageSize, totalCount)}</strong> of <strong>{totalCount}</strong> matching assets ({allAssets.length} total in fleet)
         </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

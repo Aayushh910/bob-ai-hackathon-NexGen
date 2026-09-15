@@ -23,11 +23,31 @@ import { PageHeader, KpiCard, RiskBadge, StatusBadge, LoadingSkeleton, EmptyStat
 import AssetMaintenanceModal from './AssetMaintenanceModal';
 
 export default function MaintenanceDashboard() {
-  const [summary, setSummary] = useState(null);
-  const [queue, setQueue] = useState([]);
-  const [records, setRecords] = useState([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('sentinel_maint_summary');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) { return null; }
+  });
+  const [queue, setQueue] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('sentinel_maint_queue');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) { return []; }
+  });
+  const [records, setRecords] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('sentinel_maint_records');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) { return []; }
+  });
+  const [totalRecords, setTotalRecords] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('sentinel_maint_total_recs');
+      return saved ? Number(saved) : 0;
+    } catch (e) { return 0; }
+  });
+  const [loading, setLoading] = useState(() => queue.length === 0);
   const [error, setError] = useState(null);
 
   // Filters
@@ -52,13 +72,34 @@ export default function MaintenanceDashboard() {
           page_size: pageSize,
         }),
       ]);
+      const fetchedQueue = queueData?.items || queueData || [];
+      const fetchedRecords = recsData?.items || [];
+      const fetchedTotal = recsData?.total || 0;
+
       setSummary(sumData);
-      setQueue(queueData?.items || queueData || []);
-      setRecords(recsData?.items || []);
-      setTotalRecords(recsData?.total || 0);
+      setQueue(fetchedQueue);
+      setRecords(fetchedRecords);
+      setTotalRecords(fetchedTotal);
+
+      // Persist to sessionStorage for instant loading on subsequent tab switches
+      try {
+        if (sumData) sessionStorage.setItem('sentinel_maint_summary', JSON.stringify(sumData));
+        if (fetchedQueue.length > 0) sessionStorage.setItem('sentinel_maint_queue', JSON.stringify(fetchedQueue));
+        if (fetchedRecords.length > 0) sessionStorage.setItem('sentinel_maint_records', JSON.stringify(fetchedRecords));
+        if (fetchedTotal) sessionStorage.setItem('sentinel_maint_total_recs', String(fetchedTotal));
+      } catch (e) {}
     } catch (err) {
       console.error('Failed to load maintenance data:', err);
       setError(err.message || 'Unable to retrieve maintenance records.');
+      // If we don't have cached queue, try retrieving from sessionStorage
+      if (queue.length === 0) {
+        try {
+          const cachedQ = sessionStorage.getItem('sentinel_maint_queue');
+          if (cachedQ) setQueue(JSON.parse(cachedQ));
+          const cachedS = sessionStorage.getItem('sentinel_maint_summary');
+          if (cachedS) setSummary(JSON.parse(cachedS));
+        } catch (e) {}
+      }
     } finally {
       setLoading(false);
     }
@@ -165,12 +206,20 @@ export default function MaintenanceDashboard() {
           </div>
         </div>
 
-        {loading ? (
+        {loading && queue.length === 0 ? (
           <LoadingState
             message="Compiling Maintenance Queue & Work Orders..."
             subtext="Cross-referencing telemetry degradation curves with scheduled depot intervals."
             size="lg"
             minHeight="220px"
+          />
+        ) : error && queue.length === 0 ? (
+          <EmptyState
+            title="Telemetry Stream Disconnected"
+            description={error || "Could not retrieve live queue from backend. Click retry to reconnect."}
+            icon={AlertTriangle}
+            actionText="Retry Connection"
+            onAction={loadData}
           />
         ) : queue.length === 0 ? (
           <EmptyState
@@ -285,12 +334,20 @@ export default function MaintenanceDashboard() {
           </div>
         </div>
 
-        {loading ? (
+        {loading && records.length === 0 ? (
           <LoadingState
             message="Querying Historical Maintenance Records..."
             subtext="Retrieving audited work orders and depot repair logs."
             size="md"
             minHeight="180px"
+          />
+        ) : error && records.length === 0 ? (
+          <EmptyState
+            title="Historical Telemetry Disconnected"
+            description={error || "Could not retrieve historical work orders from database."}
+            icon={AlertTriangle}
+            actionText="Retry"
+            onAction={loadData}
           />
         ) : records.length === 0 ? (
           <EmptyState

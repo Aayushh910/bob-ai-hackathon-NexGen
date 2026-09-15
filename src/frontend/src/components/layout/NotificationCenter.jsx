@@ -8,7 +8,8 @@ import {
   X,
   ChevronRight,
   ShieldAlert,
-  Check
+  Check,
+  CheckCheck
 } from 'lucide-react';
 
 export default function NotificationCenter({
@@ -17,7 +18,9 @@ export default function NotificationCenter({
   notifications = [],
   onAcknowledge,
   onInspectAsset,
-  onViewAllAlerts
+  onViewAllAlerts,
+  onReadAll,
+  onDismiss
 }) {
   // Close on Escape key press
   useEffect(() => {
@@ -63,14 +66,27 @@ export default function NotificationCenter({
               </span>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="notification-close-btn"
-            aria-label="Close notifications"
-            title="Close (Esc)"
-          >
-            <X size={15} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {notifications.length > 0 && onReadAll && (
+              <button
+                type="button"
+                className="notification-read-all-header-btn"
+                onClick={onReadAll}
+                title="Mark all notifications as read"
+              >
+                <CheckCheck size={13} />
+                <span>Read All</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="notification-close-btn"
+              aria-label="Close notifications"
+              title="Close (Esc)"
+            >
+              <X size={15} />
+            </button>
+          </div>
         </div>
 
         {/* Notifications List */}
@@ -80,7 +96,7 @@ export default function NotificationCenter({
               <CheckCircle2 size={32} style={{ color: 'var(--color-success)', marginBottom: '8px' }} />
               <div className="notification-empty-title">All Systems Nominal</div>
               <div className="notification-empty-sub">
-                No active sensor deviations or urgent maintenance directives reported.
+                No active sensor deviations or unread maintenance directives.
               </div>
             </div>
           ) : (
@@ -111,9 +127,24 @@ export default function NotificationCenter({
                           {notif.title || notif.type || 'Operational Advisory'}
                         </span>
                       </div>
-                      <span className={`notification-severity-tag ${isCritical ? 'critical' : isWarning ? 'warning' : 'info'}`}>
-                        {isCritical ? 'CRITICAL' : isWarning ? 'HIGH' : 'INFO'}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        <span className={`notification-severity-tag ${isCritical ? 'critical' : isWarning ? 'warning' : 'info'}`}>
+                          {isCritical ? 'CRITICAL' : isWarning ? 'HIGH' : 'INFO'}
+                        </span>
+                        {onDismiss && (
+                          <button
+                            type="button"
+                            className="notification-dismiss-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDismiss(notif.id, notif.recommendation_id);
+                            }}
+                            title="Dismiss notification"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <p className="notification-item-desc">
@@ -165,9 +196,19 @@ export default function NotificationCenter({
           )}
         </div>
 
-        {/* Footer Bar with View All Action */}
-        {onViewAllAlerts && (
-          <div className="notification-footer-bar">
+        {/* Footer Bar with Read All and View All Action */}
+        <div className="notification-footer-bar">
+          {notifications.length > 0 && onReadAll && (
+            <button
+              type="button"
+              className="notification-read-all-btn"
+              onClick={onReadAll}
+            >
+              <CheckCheck size={14} />
+              <span>Mark All as Read &amp; Clear</span>
+            </button>
+          )}
+          {onViewAllAlerts && (
             <button
               type="button"
               className="notification-view-all-btn"
@@ -176,8 +217,8 @@ export default function NotificationCenter({
               <span>View All Directives &amp; Alerts</span>
               <ChevronRight size={14} />
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </>
   );

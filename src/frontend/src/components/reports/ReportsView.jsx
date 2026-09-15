@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   FileText,
   Download,
-  Printer,
   ShieldCheck,
   Calendar,
   CheckCircle2,
@@ -163,15 +162,6 @@ export default function ReportsView() {
               <p className="card-subtitle">Authenticated snapshot generated according to standard defence readiness protocols</p>
             </div>
           </div>
-          <button
-            className="secondary-btn"
-            style={{ height: '32px', fontSize: '12px' }}
-            onClick={() => window.print()}
-            title="Print clearance brief"
-          >
-            <Printer size={14} />
-            <span>Print Brief</span>
-          </button>
         </div>
 
         <div style={{ padding: '20px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>

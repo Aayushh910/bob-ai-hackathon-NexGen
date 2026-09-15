@@ -37,21 +37,37 @@ export default function AppShell({
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
+  // Helper to retrieve read notification IDs from localStorage
+  const getReadNotificationIds = () => {
+    try {
+      const saved = localStorage.getItem('sentinel_read_notifications');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch (e) {
+      return new Set();
+    }
+  };
+
   // Load notifications and assets for quick jump
   const loadNotifications = useCallback(async () => {
     try {
       const [anomRes, recRes, assetsRes] = await Promise.allSettled([
-        getFleetAnomalies({ limit: 8 }),
-        getRecommendations({ status: 'OPEN', limit: 8 }),
-        getAssets({ limit: 100 })
+        getFleetAnomalies({ limit: 12 }),
+        getRecommendations({ status: 'OPEN', limit: 15 }),
+        getAssets({ limit: 150 })
       ]);
 
+      const readIds = getReadNotificationIds();
       const items = [];
+      const seen = new Set();
 
       if (anomRes.status === 'fulfilled' && anomRes.value?.items) {
         anomRes.value.items.forEach((a) => {
+          const id = `anom-${a.id}`;
+          const key = `anom-${a.asset_id}-${a.component_id}`;
+          if (readIds.has(id) || seen.has(key)) return;
+          seen.add(key);
           items.push({
-            id: `anom-${a.id}`,
+            id,
             asset_id: a.asset_id,
             asset_code: a.asset_code || `Asset #${a.asset_id}`,
             title: `Sensor Anomaly: ${a.component_id || 'Telemetry'}`,
@@ -64,8 +80,12 @@ export default function AppShell({
 
       if (recRes.status === 'fulfilled' && recRes.value?.items) {
         recRes.value.items.forEach((r) => {
+          const id = `rec-${r.id}`;
+          const key = `rec-${r.asset_id}-${r.action_directive}`;
+          if (readIds.has(id) || seen.has(key)) return;
+          seen.add(key);
           items.push({
-            id: `rec-${r.id}`,
+            id,
             recommendation_id: r.id,
             asset_id: r.asset_id,
             asset_code: r.asset_code || `Asset #${r.asset_id}`,
@@ -99,11 +119,33 @@ export default function AppShell({
     };
   }, [loadNotifications]);
 
+  const handleReadAllNotifications = useCallback(() => {
+    const readIds = getReadNotificationIds();
+    notifications.forEach((n) => readIds.add(n.id));
+    try {
+      localStorage.setItem('sentinel_read_notifications', JSON.stringify(Array.from(readIds)));
+    } catch (e) {}
+    setNotifications([]);
+    window.dispatchEvent(new CustomEvent('sentinel:data-updated'));
+  }, [notifications]);
+
+  const handleDismissNotification = useCallback((id, recId) => {
+    const readIds = getReadNotificationIds();
+    readIds.add(id);
+    try {
+      localStorage.setItem('sentinel_read_notifications', JSON.stringify(Array.from(readIds)));
+    } catch (e) {}
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    if (recId) {
+      updateRecommendationStatus(recId, 'ACKNOWLEDGED').catch(() => {});
+    }
+    window.dispatchEvent(new CustomEvent('sentinel:data-updated'));
+  }, []);
+
   const handleAcknowledgeRecommendation = async (recId) => {
     try {
       await updateRecommendationStatus(recId, 'ACKNOWLEDGED');
-      setNotifications((prev) => prev.filter((n) => n.recommendation_id !== recId));
-      window.dispatchEvent(new CustomEvent('sentinel:data-updated'));
+      handleDismissNotification(`rec-${recId}`, recId);
     } catch (err) {
       console.error('Failed to acknowledge recommendation:', err);
     }
@@ -162,6 +204,8 @@ export default function AppShell({
         notifications={notifications}
         onAcknowledge={handleAcknowledgeRecommendation}
         onInspectAsset={handleInspectAsset}
+        onReadAll={handleReadAllNotifications}
+        onDismiss={handleDismissNotification}
         onViewAllAlerts={() => {
           onTabChange('alerts');
           setIsNotificationsOpen(false);

@@ -776,3 +776,59 @@
   font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
+
+/* Loading Progress & Percentage */
+.loading-progress-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 4px;
+}
+
+.loading-progress-bar-bg {
+  width: 100%;
+  height: 6px;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  position: relative;
+}
+
+.loading-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #06b6d4 100%);
+  border-radius: var(--radius-full);
+  transition: width 0.25s ease-out;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+}
+
+.loading-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 11px;
+}
+
+.loading-percentage-text {
+  font-family: var(--font-family-mono);
+  font-weight: 700;
+  color: #38bdf8;
+  background-color: rgba(56, 189, 248, 0.12);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.loading-status-ticker {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
