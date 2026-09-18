@@ -1,18 +1,14 @@
 import React from 'react';
 import {
   Cpu,
-  Shield,
   Activity,
   Radio,
-  AlertOctagon,
-  Wrench,
   TrendingUp,
-  BarChart2,
-  FileText,
+  BrainCircuit,
+  SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
-  LogOut,
-  Calendar
+  LogOut
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -21,35 +17,18 @@ export default function Sidebar({
   isCollapsed,
   onToggleCollapse,
   user,
-  onLogout,
-  unreadAlertCount = 0,
-  urgentMaintenanceCount = 0
+  onLogout
 }) {
   const navigationGroups = [
     {
       title: 'Operational Command',
       items: [
-        { id: 'overview', label: 'Overview', icon: Cpu, badge: 'CORE' },
+        { id: 'overview', label: 'Overview', icon: Cpu },
         { id: 'fleet', label: 'Fleet Assets', icon: Activity },
-        { id: 'health', label: 'Health & Sensors', icon: Radio },
-        { id: 'predictions', label: 'Predictions & Risk', icon: TrendingUp },
-        {
-          id: 'alerts',
-          label: 'Alerts & Directives',
-          icon: AlertOctagon,
-          badge: unreadAlertCount > 0 ? `${unreadAlertCount}` : null,
-          badgeClass: unreadAlertCount > 0 ? 'badge-critical' : ''
-        },
-        {
-          id: 'maintenance',
-          label: 'Maintenance Queue',
-          icon: Wrench,
-          badge: urgentMaintenanceCount > 0 ? `${urgentMaintenanceCount} DUE` : null,
-          badgeClass: urgentMaintenanceCount > 0 ? 'badge-caution' : ''
-        },
-        { id: 'planning', label: 'Intervention Plan', icon: Calendar },
-        { id: 'analytics', label: 'Fleet Analytics', icon: BarChart2 },
-        { id: 'reports', label: 'Readiness Reports', icon: FileText },
+        { id: 'predictions', label: 'Predictions', icon: TrendingUp },
+        { id: 'trends', label: 'Trends & Health', icon: Radio },
+        { id: 'copilot', label: 'AI Copilot', icon: BrainCircuit, badge: 'AI' },
+        { id: 'settings', label: 'Settings', icon: SlidersHorizontal },
       ]
     }
   ];

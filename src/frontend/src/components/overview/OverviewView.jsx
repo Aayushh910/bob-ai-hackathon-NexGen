@@ -4,255 +4,238 @@ import {
   ShieldCheck,
   ShieldAlert,
   Activity,
-  Radio,
   AlertTriangle,
   AlertOctagon,
-  Wrench,
+  RefreshCw,
   Search,
   Sparkles,
   Send,
-  RefreshCw,
-  ArrowRight,
-  ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Cpu,
+  Layers,
+  Radio
 } from 'lucide-react';
-import { getCommandOverview, getCommandKPIs, getCommandAttentionQueue } from '../../api/command';
-import { getFleetAnomalies } from '../../api/ml';
-import { getRecommendations } from '../../api/readiness';
+import {
+  getDashboardSummary,
+  getCriticalComponents,
+  getHighPriorityComponents
+} from '../../api/dashboard';
 import { askCopilotQuery } from '../../api/copilot';
-import AssetDetailModal from '../fleet/AssetDetailModal';
-import { PageHeader, KpiCard, StatusBadge, RiskBadge, LoadingSkeleton, EmptyState, LoadingSpinner, LoadingState } from '../common/UIComponents';
+import { PageHeader, KpiCard, StatusBadge, RiskBadge, LoadingState, EmptyState } from '../common/UIComponents';
 
-export default function OverviewView() {
-  const [data, setData] = useState(null);
+export default function OverviewView({ onInspectAsset, onAnalyzeComponent, onNavigateCopilot }) {
+  const [summary, setSummary] = useState(null);
+  const [criticalComponents, setCriticalComponents] = useState([]);
+  const [highPriorityComponents, setHighPriorityComponents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Copilot Query State
+  // AI Copilot Quick Query State
   const [queryText, setQueryText] = useState('');
   const [copilotLoading, setCopilotLoading] = useState(false);
   const [copilotResponse, setCopilotResponse] = useState(null);
-
-  // Inspection Modal
-  const [inspectAsset, setInspectAsset] = useState(null);
+  const [copilotError, setCopilotError] = useState(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [overviewRes, anomRes, recRes] = await Promise.allSettled([
-        getCommandOverview(),
-        getFleetAnomalies({ limit: 10 }),
-        getRecommendations({ status: 'OPEN', limit: 10 })
+      const [sumData, critData, highData] = await Promise.all([
+        getDashboardSummary(),
+        getCriticalComponents(),
+        getHighPriorityComponents()
       ]);
 
-      let overviewData = overviewRes.status === 'fulfilled' ? overviewRes.value : null;
+      const safeCrit = Array.isArray(critData)
+        ? critData
+        : (Array.isArray(critData?.components) ? critData.components : []);
+      const safeHigh = Array.isArray(highData)
+        ? highData
+        : (Array.isArray(highData?.components) ? highData.components : []);
 
-      // Resilient fallback if overview timed out or failed
-      if (!overviewData || !overviewData.kpis) {
-        try {
-          const [kpisFallback, queueFallback] = await Promise.allSettled([
-            getCommandKPIs(),
-            getCommandAttentionQueue(10)
-          ]);
-          overviewData = {
-            kpis: kpisFallback.status === 'fulfilled' ? kpisFallback.value : null,
-            attention_queue: queueFallback.status === 'fulfilled' ? queueFallback.value : []
-          };
-        } catch (fbErr) {
-          console.warn('Fallback KPIs failed:', fbErr);
-        }
-      }
-
-      // Collect active telemetry alerts and recommendations
-      const alerts = [];
-      if (anomRes.status === 'fulfilled' && anomRes.value?.items) {
-        anomRes.value.items.forEach((a) => alerts.push({
-          id: `anom-${a.id}`,
-          title: `Sensor Anomaly: ${a.component_id || 'Telemetry Bus'}`,
-          description: a.description || `Deviation detected on ${a.affected_sensor || 'sensor telemetry'}.`,
-          severity: a.severity || 'CRITICAL',
-          timestamp: a.detected_at,
-          asset_code: a.asset_code
-        }));
-      }
-      if (recRes.status === 'fulfilled' && recRes.value?.items) {
-        recRes.value.items.forEach((r) => alerts.push({
-          id: `rec-${r.id}`,
-          title: `Operational Directive: ${r.priority} Priority`,
-          description: r.action_directive,
-          severity: r.priority || 'HIGH',
-          timestamp: r.created_at,
-          asset_code: r.asset_code
-        }));
-      }
-
-      setData({
-        ...overviewData,
-        recent_alerts: alerts.length > 0 ? alerts : (overviewData?.recent_changes || [])
-      });
+      setSummary(sumData);
+      setCriticalComponents(safeCrit);
+      setHighPriorityComponents(safeHigh);
     } catch (err) {
-      console.error('Failed to load command overview:', err);
-      setError(err.message || 'Unable to retrieve command intelligence from API.');
+      console.error('Failed to load dashboard overview data:', err);
+      setError(err.message || 'Unable to retrieve fleet command overview from backend.');
     } finally {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    loadData();
+    const handleUpdate = () => loadData();
+    window.addEventListener('sentinel:data-updated', handleUpdate);
+    return () => window.removeEventListener('sentinel:data-updated', handleUpdate);
+  }, [loadData]);
 
   const handleCopilotSubmit = async (text) => {
     const q = text || queryText;
     if (!q.trim()) return;
 
     setCopilotLoading(true);
+    setCopilotError(null);
     try {
       const res = await askCopilotQuery(q);
       setCopilotResponse(res);
     } catch (err) {
       console.error('Copilot query error:', err);
+      setCopilotError(err.message || 'AI Copilot query failed.');
     } finally {
       setCopilotLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadData();
-
-    const handleUpdate = () => {
-      loadData();
-    };
-    window.addEventListener('sentinel:data-updated', handleUpdate);
-    return () => window.removeEventListener('sentinel:data-updated', handleUpdate);
-  }, [loadData]);
-
-  const kpis = data?.kpis;
-  const totalAssets = kpis?.total_assets || 0;
-  const readinessScore = kpis?.fleet_readiness_index ?? kpis?.fleet_readiness_rate;
-  const elevatedRiskCount = kpis?.critical_risk_assets ?? kpis?.high_failure_risk_assets ?? kpis?.high_risk_assets ?? 0;
-  const anomalyCount = kpis?.active_anomaly_count ?? kpis?.active_anomalies ?? 0;
-  const maintenanceCount = kpis?.assets_requiring_maintenance ?? kpis?.overdue_maintenance ?? kpis?.maintenance_due ?? 0;
-
-  const priorityAssets = data?.attention_queue || data?.priority_assets || data?.top_risk_ranking || [];
-  const recentAlerts = data?.recent_alerts || data?.recent_changes || [];
-
-  const riskSummary = data?.risk_summary || {
-    critical: kpis?.not_ready_assets ?? kpis?.critical_risk_assets ?? 0,
-    high: kpis?.degraded_assets ?? kpis?.high_failure_risk_assets ?? 0,
-    medium: kpis?.caution_assets ?? 0,
-    low: kpis?.ready_assets ?? 0,
   };
 
   const suggestedQuestions = [
     'Which assets need immediate attention?',
     'Which assets are NOT mission-ready?',
     'Which assets have highest failure risk?',
-    'Which assets are overdue for maintenance?',
+    'What is happening across the fleet?'
   ];
 
+  if (loading && !summary) {
+    return (
+      <div className="overview-container">
+        <PageHeader
+          badgeText="Operational Command Center"
+          badgeIcon={Shield}
+          title="Fleet Readiness & Command Overview"
+          subtitle="Real-time telemetry, predictive failure risk, TreeSHAP causal attribution, and operational clearance."
+        />
+        <LoadingState
+          message="Connecting to SentinelAI Fleet Engine..."
+          subtext="Loading verified fleet summary, critical components, and operational readiness distribution."
+          minHeight="340px"
+        />
+      </div>
+    );
+  }
+
+  if (error && !summary) {
+    return (
+      <div className="overview-container">
+        <PageHeader
+          badgeText="Operational Command Center"
+          badgeIcon={Shield}
+          title="Fleet Readiness & Command Overview"
+          subtitle="Real-time telemetry, predictive failure risk, TreeSHAP causal attribution, and operational clearance."
+        />
+        <div className="error-card" style={{ padding: '24px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '8px', border: '1px solid var(--color-danger-border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-danger)', marginBottom: '8px' }}>
+            <AlertOctagon size={20} />
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Fleet Telemetry Unavailable</h3>
+          </div>
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', margin: '0 0 16px' }}>{error}</p>
+          <button className="primary-btn" onClick={loadData}>
+            <RefreshCw size={14} />
+            <span>Retry Connection</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const dist = summary?.status_distribution || { READY: 0, ATTENTION: 0, NOT_READY: 0 };
+  const riskSum = summary?.component_risk_summary || { critical_components: 0, high_priority_components: 0, anomalous_components: 0 };
+
   return (
-    <div className="copilot-container">
-      {/* 1. Page Header */}
+    <div className="overview-container">
+      {/* 1. Header */}
       <PageHeader
         badgeText="Operational Command Center"
         badgeIcon={Shield}
-        title="Command Intelligence & Readiness Overview"
-        subtitle="Real-time synthesis of telemetry, predictive failure risk, HUMS sensor anomalies, and maintenance clearance."
+        title="Fleet Readiness & Command Overview"
+        subtitle="Real-time telemetry, predictive failure risk, TreeSHAP causal attribution, and operational clearance."
         actions={
           <button
             className="secondary-btn"
             onClick={loadData}
             disabled={loading}
-            title="Refresh Command Data"
+            title="Refresh Fleet Data"
           >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             <span>Refresh</span>
           </button>
         }
       />
 
-      {/* 2. KPI Grid (4 Columns) */}
+      {/* 2. Top-Level Fleet KPIs (Backend Driven) */}
       <div className="grid-kpi">
         <KpiCard
           title="Fleet Readiness Rate"
-          value={readinessScore !== undefined && readinessScore !== null ? `${readinessScore}%` : '--'}
-          subtitle={`${totalAssets} Total Assets Monitored`}
+          value={summary?.readiness_rate_percent !== undefined ? `${summary.readiness_rate_percent}%` : '--'}
+          subtitle={`${summary?.total_assets || 0} Total Tactical Assets`}
           icon={ShieldCheck}
           variant="ready"
-          trend={{ direction: 'up', value: '+2.4% vs last cycle' }}
           loading={loading}
         />
         <KpiCard
-          title="Elevated Risk Assets"
-          value={elevatedRiskCount !== undefined && elevatedRiskCount !== null ? elevatedRiskCount : '--'}
-          subtitle="Probability > 65% or RUL < 20h"
+          title="Not Ready Assets"
+          value={dist.NOT_READY}
+          subtitle="Ground Hold / Imminent Risk"
+          icon={AlertOctagon}
+          variant="critical"
+          loading={loading}
+        />
+        <KpiCard
+          title="Critical Components"
+          value={riskSum.critical_components}
+          subtitle="Immediate depot intervention"
           icon={AlertTriangle}
           variant="caution"
-          trend={{ direction: 'flat', value: 'Active monitoring' }}
           loading={loading}
         />
         <KpiCard
           title="Active Sensor Anomalies"
-          value={anomalyCount !== undefined && anomalyCount !== null ? anomalyCount : '--'}
-          subtitle="Deviations across HUMS streams"
+          value={riskSum.anomalous_components}
+          subtitle="HUMS telemetry deviations"
           icon={Radio}
-          variant="critical"
-          trend={{ direction: 'down', value: '-3 resolved' }}
-          loading={loading}
-        />
-        <KpiCard
-          title="Maintenance Due"
-          value={maintenanceCount !== undefined && maintenanceCount !== null ? maintenanceCount : '--'}
-          subtitle="Interventions scheduled in queue"
-          icon={Wrench}
           variant="default"
-          trend={{ direction: 'flat', value: 'Depot scheduled' }}
           loading={loading}
         />
       </div>
 
-      {/* 3. Main Grid: Fleet Readiness & Copilot (8 cols) + Risk Summary (4 cols) */}
+      {/* 3. Main Grid: AI Copilot Inquest & Status Distribution */}
       <div className="grid-8-4">
-        {/* Left Column: Copilot & Decision Support */}
+        {/* Left: AI Copilot Inquest Module */}
         <div className="sentinel-card">
           <div className="card-header-row">
             <div>
-              <h2 className="card-title">Fleet Decision Support &amp; Copilot</h2>
-              <p className="card-subtitle">Natural-language operational queries powered by telemetry &amp; readiness models</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={18} style={{ color: 'var(--color-primary)' }} />
+                <h2 className="card-title">AI Copilot &amp; Decision Support</h2>
+              </div>
+              <p className="card-subtitle">
+                Natural-language operational queries answered directly from live PostgreSQL telemetry &amp; TreeSHAP models.
+              </p>
             </div>
-            <Sparkles size={18} style={{ color: 'var(--color-text-secondary)' }} />
           </div>
 
-          <div className="copilot-query-box">
+          <div className="copilot-query-box" style={{ marginTop: '14px' }}>
             <div className="copilot-input-row">
               <Search size={16} style={{ color: 'var(--color-text-muted)' }} />
               <input
                 type="text"
                 className="copilot-input"
-                placeholder="Ask an operational question (e.g. Which assets are NOT mission-ready?)"
+                placeholder="Ask an operational question (e.g. Which assets need immediate attention?)"
                 value={queryText}
                 onChange={(e) => setQueryText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCopilotSubmit()}
               />
               <button
                 className="primary-btn"
-                style={{ height: '32px', padding: '0 12px', fontSize: '12px' }}
+                style={{ height: '32px', padding: '0 14px', fontSize: '12px' }}
                 onClick={() => handleCopilotSubmit()}
                 disabled={copilotLoading}
               >
-                {copilotLoading ? (
-                  <>
-                    <LoadingSpinner size="xs" />
-                    <span>Inquiring...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Inquire</span>
-                    <Send size={13} />
-                  </>
-                )}
+                {copilotLoading ? 'Analyzing...' : 'Inquire'}
+                <Send size={13} style={{ marginLeft: '6px' }} />
               </button>
             </div>
 
-            <div className="suggested-chips-scroll">
+            <div className="suggested-chips-scroll" style={{ marginTop: '10px' }}>
               {suggestedQuestions.map((q, idx) => (
                 <button
                   key={idx}
@@ -268,192 +251,190 @@ export default function OverviewView() {
             </div>
           </div>
 
-          {copilotLoading ? (
-            <div style={{ marginTop: '16px', padding: '24px 16px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+          {copilotLoading && (
+            <div style={{ marginTop: '16px' }}>
               <LoadingState
-                message="Synthesizing Fleet Intelligence..."
-                subtext="Analyzing telemetry deviations, prognostic models, and operational directives"
+                message="AI Copilot Synthesizing Fleet Telemetry..."
+                subtext="Evaluating failure probability horizons and component TreeSHAP attributions"
                 size="sm"
               />
             </div>
-          ) : copilotResponse && (
-            <div className="copilot-answer-card" style={{ marginTop: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          )}
+
+          {copilotError && (
+            <div style={{ marginTop: '14px', padding: '12px', backgroundColor: 'var(--color-danger-dim)', borderRadius: '6px', color: 'var(--color-danger)', fontSize: '13px' }}>
+              {copilotError}
+            </div>
+          )}
+
+          {copilotResponse && !copilotLoading && (
+            <div className="copilot-answer-card" style={{ marginTop: '16px', padding: '16px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Inquest Intent: <strong>{copilotResponse.intent}</strong> &bull; Confidence: {(copilotResponse.confidence * 100).toFixed(0)}%
+                  Intent: <strong>{copilotResponse.intent}</strong> &bull; Confidence: {(copilotResponse.confidence * 100).toFixed(0)}%
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                  {new Date(copilotResponse.timestamp).toLocaleTimeString()}
                 </span>
               </div>
-              <p className="copilot-answer-text">{copilotResponse.answer}</p>
+              <p style={{ fontSize: '14px', lineHeight: '1.5', margin: '0 0 12px', color: 'var(--color-text)' }}>
+                {copilotResponse.answer}
+              </p>
 
               {copilotResponse.evidence && copilotResponse.evidence.length > 0 && (
-                <div className="copilot-evidence-list">
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-                    Telemetry &amp; Prognostic Evidence:
+                <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: '10px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+                    Evidence Attribution:
                   </span>
-                  {copilotResponse.evidence.slice(0, 3).map((ev, i) => (
-                    <div key={i} className="copilot-evidence-item">
-                      <strong>[{ev.source}]</strong> {ev.explanation}
-                    </div>
-                  ))}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {copilotResponse.evidence.slice(0, 3).map((ev, i) => (
+                      <div key={i} style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+                        <strong>[{ev.source}]</strong> {ev.explanation}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Right Column: Risk & Subsystem Summary */}
+        {/* Right: Real Status Distribution Breakdown */}
         <div className="sentinel-card">
           <div className="card-header-row">
             <div>
-              <h2 className="card-title">Fleet Risk Summary</h2>
-              <p className="card-subtitle">Current failure horizon distribution</p>
+              <h2 className="card-title">Operational Readiness</h2>
+              <p className="card-subtitle">Active fleet readiness posture</p>
             </div>
             <Activity size={18} style={{ color: 'var(--color-text-muted)' }} />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '6px', borderLeft: '3px solid var(--color-danger)' }}>
-              <span style={{ fontSize: '13px', fontWeight: 500 }}>Critical Failure Risk</span>
-              <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 700, color: 'var(--color-danger)', fontSize: '16px' }}>
-                {riskSummary.critical || 0}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '6px', borderLeft: '3px solid #f97316' }}>
-              <span style={{ fontSize: '13px', fontWeight: 500 }}>High Degradation Risk</span>
-              <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 700, color: '#f97316', fontSize: '16px' }}>
-                {riskSummary.high || 0}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', margin: '14px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '6px', borderLeft: '3px solid var(--color-success)' }}>
+              <div>
+                <span style={{ fontSize: '13px', fontWeight: 600, display: 'block' }}>READY</span>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Full sortie clearance</span>
+              </div>
+              <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 800, color: 'var(--color-success)', fontSize: '20px' }}>
+                {dist.READY}
               </span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '6px', borderLeft: '3px solid var(--color-warning)' }}>
-              <span style={{ fontSize: '13px', fontWeight: 500 }}>Moderate Monitoring</span>
-              <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 700, color: 'var(--color-warning)', fontSize: '16px' }}>
-                {riskSummary.medium || 0}
+              <div>
+                <span style={{ fontSize: '13px', fontWeight: 600, display: 'block' }}>ATTENTION</span>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Moderate warning detected</span>
+              </div>
+              <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 800, color: 'var(--color-warning)', fontSize: '20px' }}>
+                {dist.ATTENTION}
               </span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '6px', borderLeft: '3px solid var(--color-success)' }}>
-              <span style={{ fontSize: '13px', fontWeight: 500 }}>Nominal Operational</span>
-              <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 700, color: 'var(--color-success)', fontSize: '16px' }}>
-                {riskSummary.low || 0}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '6px', borderLeft: '3px solid var(--color-danger)' }}>
+              <div>
+                <span style={{ fontSize: '13px', fontWeight: 600, display: 'block' }}>NOT READY</span>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Critical threshold breach</span>
+              </div>
+              <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 800, color: 'var(--color-danger)', fontSize: '20px' }}>
+                {dist.NOT_READY}
               </span>
             </div>
           </div>
 
-          <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--color-border)' }}>
-            <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-              Autonomous diagnostic sweep completed every 60 seconds.
-            </span>
+          <div style={{ marginTop: 'auto', paddingTop: '14px', borderTop: '1px solid var(--color-border)', fontSize: '11px', color: 'var(--color-text-muted)' }}>
+            Total 200 components across 50 assets monitored via Neon DB.
           </div>
         </div>
       </div>
 
-      {/* 4. Secondary Grid: Priority Assets (6 cols) + Operational Alerts (6 cols) */}
-      <div className="grid-6-6">
-        {/* Priority Assets */}
-        <div className="sentinel-card">
-          <div className="card-header-row">
-            <div>
-              <h2 className="card-title">Priority Attention Assets</h2>
-              <p className="card-subtitle">Assets requiring immediate clearance or depot assessment</p>
+      {/* 4. Priority Components Attention Queue */}
+      <div className="sentinel-card" style={{ marginTop: '20px' }}>
+        <div className="card-header-row" style={{ marginBottom: '14px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertOctagon size={18} style={{ color: 'var(--color-danger)' }} />
+              <h2 className="card-title">Critical Components Requiring Immediate Intervention</h2>
             </div>
-            <AlertOctagon size={18} style={{ color: 'var(--color-danger)' }} />
+            <p className="card-subtitle">
+              Components identified by failure prediction models (&gt;75% failure risk or elevated vibration/thermal spikes).
+            </p>
           </div>
-
-          {loading ? (
-            <LoadingState
-              message="Evaluating Priority Attention Assets..."
-              subtext="Cross-referencing sensor deviations with mission readiness thresholds"
-              size="md"
-              minHeight="180px"
-            />
-          ) : priorityAssets.length === 0 ? (
-            <EmptyState
-              title="All Assets Nominal"
-              description="No assets currently exhibit critical failure thresholds."
-              icon={ShieldCheck}
-            />
-          ) : (
-            <div className="attention-items-list">
-              {priorityAssets.slice(0, 5).map((asset) => (
-                <div key={asset.asset_id || asset.id} className="attention-item-row">
-                  <div className="attention-item-left">
-                    <span className="attention-code">{asset.asset_code}</span>
-                    <div>
-                      <div style={{ fontSize: '12px', fontWeight: 500 }}>{asset.model || asset.asset_type || 'Equipment Unit'}</div>
-                      <div className="attention-reason">{asset.primary_issue || asset.reason || asset.evidence_summary || 'Critical failure risk threshold breach'}</div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <StatusBadge status={asset.readiness_state || 'NOT_READY'} size="sm" />
-                    <button
-                      className="secondary-btn"
-                      style={{ height: '30px', padding: '0 10px', fontSize: '11px' }}
-                      onClick={() => setInspectAsset({ id: asset.asset_id || asset.id, asset_code: asset.asset_code })}
-                    >
-                      <span>Inspect</span>
-                      <ChevronRight size={13} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
-        {/* Operational Alerts & Directives */}
-        <div className="sentinel-card">
-          <div className="card-header-row">
-            <div>
-              <h2 className="card-title">Operational Directives &amp; Alerts</h2>
-              <p className="card-subtitle">Active sensor anomalies and recommended interventions</p>
-            </div>
-            <Radio size={18} style={{ color: 'var(--color-warning)' }} />
+        {criticalComponents.length === 0 ? (
+          <EmptyState
+            title="All Components Within Tolerance"
+            description="Zero components currently trigger critical maintenance priority."
+            icon={ShieldCheck}
+          />
+        ) : (
+          <div className="table-wrapper">
+            <table className="sentinel-table">
+              <thead>
+                <tr>
+                  <th>Component ID</th>
+                  <th>Type</th>
+                  <th>Parent Asset</th>
+                  <th>Failure Risk</th>
+                  <th>Health Score</th>
+                  <th>Priority Level</th>
+                  <th>Primary SHAP Driver</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {criticalComponents.slice(0, 8).map((c) => (
+                  <tr key={c.component_id}>
+                    <td>
+                      <strong style={{ fontFamily: 'var(--font-family-mono)', color: 'var(--color-text)' }}>
+                        {c.component_id}
+                      </strong>
+                    </td>
+                    <td>{c.component_type}</td>
+                    <td>
+                      <button
+                        className="btn-link"
+                        style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 600 }}
+                        onClick={() => onInspectAsset && onInspectAsset(c.asset_id)}
+                      >
+                        {c.asset_id}
+                      </button>
+                    </td>
+                    <td>
+                      <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 700, color: 'var(--color-danger)' }}>
+                        {c.failure_probability}%
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 700, color: c.health_score < 50 ? 'var(--color-danger)' : 'var(--color-warning)' }}>
+                        {c.health_score} / 100
+                      </span>
+                    </td>
+                    <td>
+                      <RiskBadge risk={c.priority_level} size="sm" />
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text)' }}>
+                        {c.primary_reason}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        className="secondary-btn"
+                        style={{ height: '28px', padding: '0 10px', fontSize: '11px' }}
+                        onClick={() => onAnalyzeComponent && onAnalyzeComponent(c.component_id)}
+                      >
+                        <span>Analyze</span>
+                        <ChevronRight size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-
-          {loading ? (
-            <LoadingState
-              message="Loading Directives & Sensor Anomalies..."
-              subtext="Polling active HUMS anomaly detections and maintenance recommendations"
-              size="md"
-              minHeight="180px"
-            />
-          ) : recentAlerts.length === 0 ? (
-            <EmptyState
-              title="Zero Active Anomalies"
-              description="Telemetry buses are reporting within standard deviations."
-              icon={ShieldCheck}
-            />
-          ) : (
-            <div className="attention-items-list">
-              {recentAlerts.slice(0, 5).map((alert, idx) => (
-                <div key={idx} className="attention-item-row">
-                  <div className="attention-item-left">
-                    <div>
-                      <div style={{ fontSize: '13px', fontWeight: 600 }}>{alert.title || alert.component_id || 'Sensor Anomaly'}</div>
-                      <div className="attention-reason">{alert.description || alert.action_directive}</div>
-                    </div>
-                  </div>
-                  <RiskBadge risk={alert.severity || alert.priority || 'MEDIUM'} size="sm" />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        )}
       </div>
-
-      {/* Deep Inspection Modal */}
-      {inspectAsset && (
-        <AssetDetailModal
-          asset={inspectAsset}
-          onClose={() => {
-            setInspectAsset(null);
-            loadData();
-          }}
-        />
-      )}
     </div>
   );
 }

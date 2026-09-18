@@ -22,13 +22,13 @@ export function StatusBadge({ status = 'READY', size = 'md', label = null }) {
   if (norm === 'READY' || norm === 'ACTIVE' || norm === 'NOMINAL' || norm === 'OPERATIONAL' || norm === 'HEALTHY' || norm === 'PASSED') {
     badgeClass = 'badge-ready';
     Icon = CheckCircle2;
-  } else if (norm === 'CAUTION' || norm === 'WARNING' || norm === 'ADVISORY' || norm === 'DUE' || norm === 'MAINTENANCE') {
+  } else if (norm === 'ATTENTION' || norm === 'CAUTION' || norm === 'WARNING' || norm === 'ADVISORY') {
     badgeClass = 'badge-caution';
     Icon = AlertTriangle;
   } else if (norm === 'DEGRADED' || norm === 'CONSTRAINED') {
     badgeClass = 'badge-degraded';
     Icon = AlertTriangle;
-  } else if (norm === 'CRITICAL' || norm === 'NOT_READY' || norm === 'GROUNDED' || norm === 'URGENT' || norm === 'OVERDUE' || norm === 'FAILED') {
+  } else if (norm === 'CRITICAL' || norm === 'NOT_READY' || norm === 'GROUNDED' || norm === 'URGENT' || norm === 'FAILED') {
     badgeClass = 'badge-critical';
     Icon = AlertOctagon;
   } else {
@@ -67,7 +67,7 @@ export function RiskBadge({ risk = 'LOW', size = 'md' }) {
   return (
     <span className={'sentinel-badge ' + badgeClass + ' sentinel-badge-' + size} role="status">
       <Icon size={iconSize} aria-hidden="true" />
-      <span>{norm} RISK</span>
+      <span>{norm} PRIORITY</span>
     </span>
   );
 }
@@ -86,30 +86,12 @@ export function LoadingSpinner({ size = 'md', variant = 'default', className = '
 
 export function LoadingState({
   message = 'Loading operational telemetry...',
-  subtext = 'Synthesizing database streams and diagnostic models',
+  subtext = 'Connecting to Neon PostgreSQL database and diagnostic services',
   size = 'md',
   minHeight = null,
-  showPercentage = true,
-  percentage = null,
+  showPercentage = false,
   className = ''
 }) {
-  const [autoProgress, setAutoProgress] = React.useState(18);
-
-  React.useEffect(() => {
-    if (percentage !== null) return;
-    const interval = setInterval(() => {
-      setAutoProgress((prev) => {
-        if (prev < 45) return prev + Math.floor(Math.random() * 8) + 6;
-        if (prev < 78) return prev + Math.floor(Math.random() * 5) + 3;
-        if (prev < 95) return prev + Math.floor(Math.random() * 3) + 1;
-        return prev;
-      });
-    }, 240);
-    return () => clearInterval(interval);
-  }, [percentage]);
-
-  const currentPercent = percentage !== null ? Math.min(100, Math.max(0, percentage)) : autoProgress;
-
   return (
     <div
       className={`sentinel-loading-state ${className}`.trim()}
@@ -120,26 +102,6 @@ export function LoadingState({
       <LoadingSpinner size={size} />
       {message && <div className="loading-state-title">{message}</div>}
       {subtext && <div className="loading-state-sub">{subtext}</div>}
-      {showPercentage && (
-        <div className="loading-progress-container">
-          <div className="loading-progress-bar-bg">
-            <div
-              className="loading-progress-bar-fill"
-              style={{ width: `${currentPercent}%` }}
-            />
-          </div>
-          <div className="loading-progress-meta">
-            <span className="loading-percentage-text">{currentPercent}%</span>
-            <span className="loading-status-ticker">
-              {currentPercent < 35
-                ? 'Connecting to telemetry nodes...'
-                : currentPercent < 75
-                ? 'Compiling predictive curves & work orders...'
-                : 'Verifying data integrity...'}
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

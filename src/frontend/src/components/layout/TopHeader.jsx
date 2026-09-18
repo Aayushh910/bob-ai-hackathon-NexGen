@@ -24,16 +24,15 @@ export default function TopHeader({
 }) {
   const getTabBreadcrumb = () => {
     switch (activeTab) {
-      case 'overview': return 'Operational Command & Copilot';
-      case 'fleet': return 'Fleet Asset Telemetry';
-      case 'health': return 'Health & Sensor Diagnostics';
+      case 'overview': return 'Operational Command Overview';
+      case 'fleet': return 'Fleet Assets & Readiness';
       case 'predictions': return 'Prognostics & Failure Risk';
-      case 'alerts': return 'Alerts & Operational Directives';
-      case 'maintenance': return 'Intervention Queue & Service';
-      case 'analytics': return 'Fleet Reliability Analytics';
-      case 'reports': return 'Mission Clearance Reports';
-      case 'planning': return 'Intervention Planning & Depot';
-      default: return 'Command Center';
+      case 'trends': return 'Sensor Telemetry & Health Trends';
+      case 'copilot': return 'AI Copilot Decision Support';
+      case 'settings': return 'Environment & Settings';
+      case 'inspection': return 'Asset Inspection';
+      case 'component': return 'Component Analysis';
+      default: return 'Operational Command';
     }
   };
 

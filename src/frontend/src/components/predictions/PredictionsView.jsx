@@ -7,38 +7,45 @@ import {
   Search,
   Filter,
   RefreshCw,
-  Zap,
+  ChevronRight,
   Eye,
-  SlidersHorizontal,
-  ChevronRight
+  Cpu,
+  Sparkles
 } from 'lucide-react';
-import { getFleetRiskRanking } from '../../api/command';
-import { runPrediction } from '../../api/ml';
-import { PageHeader, KpiCard, RiskBadge, StatusBadge, LoadingSkeleton, EmptyState, LoadingSpinner, LoadingState } from '../common/UIComponents';
-import AssetDetailModal from '../fleet/AssetDetailModal';
+import { getCriticalComponents, getHighPriorityComponents } from '../../api/dashboard';
+import { PageHeader, KpiCard, RiskBadge, LoadingState, EmptyState } from '../common/UIComponents';
 
-export default function PredictionsView() {
-  const [ranking, setRanking] = useState([]);
+export default function PredictionsView({ onAnalyzeComponent, onInspectAsset }) {
+  const [criticalItems, setCriticalItems] = useState([]);
+  const [highPriorityItems, setHighPriorityItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [riskFilter, setRiskFilter] = useState('');
-
-  // Actions state
-  const [runningAssetId, setRunningAssetId] = useState(null);
-  const [selectedAssetModal, setSelectedAssetModal] = useState(null);
+  const [typeFilter, setTypeFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getFleetRiskRanking();
-      setRanking(data || []);
+      const [critRes, highRes] = await Promise.all([
+        getCriticalComponents(),
+        getHighPriorityComponents()
+      ]);
+      const safeCrit = Array.isArray(critRes)
+        ? critRes
+        : (Array.isArray(critRes?.components) ? critRes.components : []);
+      const safeHigh = Array.isArray(highRes)
+        ? highRes
+        : (Array.isArray(highRes?.components) ? highRes.components : []);
+
+      setCriticalItems(safeCrit);
+      setHighPriorityItems(safeHigh);
     } catch (err) {
-      console.error('Failed to load predictions ranking:', err);
-      setError(err.message || 'Unable to retrieve prognostic risk ranking.');
+      console.error('Failed to load predictions queue:', err);
+      setError(err.message || 'Unable to retrieve failure risk predictions from backend.');
     } finally {
       setLoading(false);
     }
@@ -46,301 +53,271 @@ export default function PredictionsView() {
 
   useEffect(() => {
     loadData();
-
-    const handleUpdate = () => {
-      loadData();
-    };
+    const handleUpdate = () => loadData();
     window.addEventListener('sentinel:data-updated', handleUpdate);
     return () => window.removeEventListener('sentinel:data-updated', handleUpdate);
   }, [loadData]);
 
-  const handleTriggerInference = async (assetId) => {
-    setRunningAssetId(assetId);
-    try {
-      await runPrediction(assetId);
-      window.dispatchEvent(new CustomEvent('sentinel:data-updated'));
-      await loadData();
-    } catch (err) {
-      console.error('Failed to trigger inference:', err);
-    } finally {
-      setRunningAssetId(null);
+  // Combine and deduplicate safely
+  const safeCritItems = Array.isArray(criticalItems) ? criticalItems : [];
+  const safeHighItems = Array.isArray(highPriorityItems) ? highPriorityItems : [];
+  const allPredictedComponents = [...safeCritItems, ...safeHighItems];
+  const uniqueComponentsMap = new Map();
+  allPredictedComponents.forEach((c) => {
+    if (c && c.component_id && !uniqueComponentsMap.has(c.component_id)) {
+      uniqueComponentsMap.set(c.component_id, c);
     }
-  };
-
-  // Filtered Assets
-  const filtered = ranking.filter((item) => {
-    const matchesSearch =
-      !searchTerm ||
-      (item.asset_code && item.asset_code.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (item.model && item.model.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (item.location && item.location.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    const matchesRisk =
-      !riskFilter ||
-      (item.risk_level && item.risk_level.toUpperCase() === riskFilter.toUpperCase());
-
-    return matchesSearch && matchesRisk;
   });
+  const allItems = Array.from(uniqueComponentsMap.values());
 
-  // Calculate Risk Distribution Counts
-  const criticalCount = ranking.filter((r) => r.risk_level === 'CRITICAL').length;
-  const highCount = ranking.filter((r) => r.risk_level === 'HIGH').length;
-  const moderateCount = ranking.filter((r) => r.risk_level === 'MEDIUM' || r.risk_level === 'MODERATE').length;
-  const lowCount = ranking.filter((r) => r.risk_level === 'LOW').length;
+  // Filter items
+  const filtered = allItems.filter((item) => {
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase().trim();
+      const compMatch = (item.component_id || '').toLowerCase().includes(q);
+      const assetMatch = (item.asset_id || '').toLowerCase().includes(q);
+      const reasonMatch = (item.primary_reason || '').toLowerCase().includes(q);
+      if (!compMatch && !assetMatch && !reasonMatch) return false;
+    }
+
+    if (typeFilter && item.component_type !== typeFilter) {
+      return false;
+    }
+
+    if (priorityFilter && item.priority_level !== priorityFilter) {
+      return false;
+    }
+
+    return true;
+  });
 
   return (
     <div className="predictions-view-container">
-      {/* 1. Page Header */}
+      {/* 1. Header */}
       <PageHeader
         badgeText="Predictive Failure Intelligence"
         badgeIcon={TrendingUp}
-        title="Prognostics & Failure Horizon Analysis"
-        subtitle="Machine-learning Remaining Useful Life (RUL) horizon forecasting, failure probabilities, and risk ranking across fleet assets."
+        title="Failure Prognostics &amp; Risk Hierarchy"
+        subtitle="Active components evaluated by 8 specialized anomaly and failure pipelines, ranked by maintenance priority with TreeSHAP attributions."
         actions={
-          <button
-            className="secondary-btn"
-            onClick={loadData}
-            disabled={loading}
-            title="Refresh Prognostics Data"
-          >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          <button className="secondary-btn" onClick={loadData} disabled={loading}>
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             <span>Refresh</span>
           </button>
         }
       />
 
-      {/* 2. Risk KPI Grid */}
+      {/* 2. Real Backend Metrics Summary */}
       <div className="grid-kpi">
         <KpiCard
-          title="Critical Risk Assets"
-          value={criticalCount}
-          subtitle="Imminent failure horizon (< 24 hrs)"
+          title="Critical Priority Components"
+          value={criticalItems.length}
+          subtitle="Failure prob &ge; 70% or severe anomaly"
           icon={AlertOctagon}
           variant="critical"
-          trend={{ direction: 'flat', value: 'Immediate depot hold' }}
           loading={loading}
         />
         <KpiCard
-          title="Elevated / High Risk"
-          value={highCount}
-          subtitle="Failure probability > 65%"
+          title="High Priority Warnings"
+          value={highPriorityItems.length}
+          subtitle="Imminent failure horizon elevated"
           icon={AlertTriangle}
           variant="caution"
-          trend={{ direction: 'down', value: 'Requires inspection' }}
           loading={loading}
         />
         <KpiCard
-          title="Moderate Degradation"
-          value={moderateCount}
-          subtitle="Monitored subsystem variance"
+          title="Engine &amp; Hydraulic Alerts"
+          value={allItems.filter((c) => c.component_type === 'Engine' || c.component_type === 'Hydraulic System').length}
+          subtitle="Primary mechanical powertrain units"
+          icon={Cpu}
+          variant="default"
+          loading={loading}
+        />
+        <KpiCard
+          title="Battery &amp; Pump Alerts"
+          value={allItems.filter((c) => c.component_type === 'Battery' || c.component_type === 'Fuel Pump').length}
+          subtitle="Auxiliary &amp; electrical subsystems"
           icon={TrendingUp}
           variant="default"
-          trend={{ direction: 'flat', value: 'Scheduled inspection' }}
-          loading={loading}
-        />
-        <KpiCard
-          title="Nominal / Cleared"
-          value={lowCount}
-          subtitle="Standard operational margins"
-          icon={ShieldCheck}
-          variant="ready"
-          trend={{ direction: 'up', value: 'Mission cleared' }}
           loading={loading}
         />
       </div>
 
-      {/* 3. Filters Bar */}
-      <div className="filter-bar">
-        <form className="search-form" onSubmit={(e) => e.preventDefault()}>
-          <Search size={15} style={{ color: 'var(--color-text-muted)' }} />
-          <input
-            type="text"
-            className="search-input"
-            placeholder="Search by asset code, model, or base location..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}
-              onClick={() => setSearchTerm('')}
-            >
-              Clear
-            </button>
-          )}
-        </form>
+      {/* 3. Filter Bar */}
+      <div className="sentinel-card" style={{ marginBottom: '16px', padding: '14px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'space-between', alignItems: 'center' }}>
+          {/* Search */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '260px', flex: '1', backgroundColor: 'var(--color-bg)', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+            <Search size={15} style={{ color: 'var(--color-text-muted)' }} />
+            <input
+              type="text"
+              placeholder="Search component (e.g. A035-HYD), asset, or reason..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ background: 'transparent', border: 'none', color: 'var(--color-text)', outline: 'none', width: '100%', fontSize: '13px' }}
+            />
+          </div>
 
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <select
-            className="filter-select"
-            value={riskFilter}
-            onChange={(e) => setRiskFilter(e.target.value)}
-          >
-            <option value="">All Risk Levels</option>
-            <option value="CRITICAL">Critical Risk Only</option>
-            <option value="HIGH">High Risk Only</option>
-            <option value="MEDIUM">Medium / Moderate</option>
-            <option value="LOW">Low / Nominal</option>
-          </select>
+          {/* Component Type Filters */}
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {['', 'Engine', 'Battery', 'Fuel Pump', 'Hydraulic System'].map((type) => (
+              <button
+                key={type}
+                className={`tab-btn ${typeFilter === type ? 'active' : ''}`}
+                style={{ padding: '6px 12px', fontSize: '12px' }}
+                onClick={() => setTypeFilter(type)}
+              >
+                {type || 'All Subsystems'}
+              </button>
+            ))}
+          </div>
 
-          {(searchTerm || riskFilter) && (
+          {/* Priority Filters */}
+          <div style={{ display: 'flex', gap: '6px' }}>
             <button
-              className="secondary-btn"
-              onClick={() => {
-                setSearchTerm('');
-                setRiskFilter('');
-              }}
+              className={`tab-btn ${priorityFilter === '' ? 'active' : ''}`}
+              style={{ padding: '6px 10px', fontSize: '12px' }}
+              onClick={() => setPriorityFilter('')}
             >
-              Reset
+              All Priorities
             </button>
-          )}
+            <button
+              className={`tab-btn ${priorityFilter === 'CRITICAL' ? 'active' : ''}`}
+              style={{ padding: '6px 10px', fontSize: '12px' }}
+              onClick={() => setPriorityFilter('CRITICAL')}
+            >
+              CRITICAL
+            </button>
+            <button
+              className={`tab-btn ${priorityFilter === 'HIGH' ? 'active' : ''}`}
+              style={{ padding: '6px 10px', fontSize: '12px' }}
+              onClick={() => setPriorityFilter('HIGH')}
+            >
+              HIGH
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 4. Prediction Risk Ranking Table (Bounded Container) */}
+      {/* 4. Prognostic Table */}
       {loading ? (
-        <div style={{ padding: '60px 0', display: 'flex', justifyContent: 'center' }}>
-          <LoadingState
-            message="Calculating Prognostic Failure Horizons..."
-            subtext="Evaluating Remaining Useful Life (RUL) and multi-factor failure probability rankings"
-            size="lg"
-          />
+        <LoadingState
+          message="Loading Prognostic Predictions from ML Pipelines..."
+          subtext="Retrieving failure probabilities, anomaly severities, and SHAP causal attributions from Neon database"
+          minHeight="320px"
+        />
+      ) : error ? (
+        <div className="error-card" style={{ padding: '24px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '8px', border: '1px solid var(--color-danger-border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-danger)', marginBottom: '8px' }}>
+            <AlertOctagon size={20} />
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Prognostics Unavailable</h3>
+          </div>
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', margin: '0 0 16px' }}>{error}</p>
+          <button className="primary-btn" onClick={loadData}>
+            <RefreshCw size={14} />
+            <span>Retry Connection</span>
+          </button>
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
-          title="No Matching Risk Profiles"
-          description="No fleet assets match the active search or risk filter criteria."
+          title="No Matching Predictions"
+          description="No components match your search and filter criteria."
           icon={ShieldCheck}
           actionText="Reset Filters"
-          onAction={() => {
-            setSearchTerm('');
-            setRiskFilter('');
-          }}
+          onAction={() => { setSearchTerm(''); setTypeFilter(''); setPriorityFilter(''); }}
         />
       ) : (
-        <div className="table-wrapper">
-          <table className="sentinel-table">
-            <thead>
-              <tr>
-                <th>Asset Code</th>
-                <th>Model / Type</th>
-                <th>Depot Location</th>
-                <th>Risk Classification</th>
-                <th>Failure Probability</th>
-                <th>Remaining Useful Life</th>
-                <th>Leading Contributing Factors</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((item) => {
-                const failPct = (item.failure_probability * 100).toFixed(1);
-                const rulVal = item.rul_hours ? `${item.rul_hours.toFixed(1)} hrs` : 'N/A';
-                const isRunning = runningAssetId === item.asset_id;
+        <div className="sentinel-card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="table-wrapper">
+            <table className="sentinel-table">
+              <thead>
+                <tr>
+                  <th>Component ID</th>
+                  <th>Subsystem Type</th>
+                  <th>Parent Asset</th>
+                  <th>Failure Risk</th>
+                  <th>Anomaly Prob</th>
+                  <th>Health Score</th>
+                  <th>Priority Level</th>
+                  <th>TreeSHAP Primary Reason</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((item) => {
+                  const isCrit = item.priority_level === 'CRITICAL';
 
-                return (
-                  <tr key={item.asset_id}>
-                    <td>
-                      <strong style={{ fontFamily: 'var(--font-family-mono)', color: 'var(--color-text)' }}>
-                        {item.asset_code}
-                      </strong>
-                    </td>
-                    <td>
-                      <span style={{ fontWeight: 500 }}>{item.model || 'Heavy Equipment'}</span>
-                    </td>
-                    <td>
-                      <span style={{ color: 'var(--color-text-muted)' }}>{item.location || 'Depot Alpha'}</span>
-                    </td>
-                    <td>
-                      <RiskBadge risk={item.risk_level || 'LOW'} size="sm" />
-                    </td>
-                    <td>
-                      <span
-                        style={{
-                          fontFamily: 'var(--font-family-mono)',
-                          fontWeight: 700,
-                          color: item.failure_probability > 0.6 ? 'var(--color-danger)' : 'var(--color-text)',
-                        }}
-                      >
-                        {failPct}%
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        style={{
-                          fontFamily: 'var(--font-family-mono)',
-                          fontWeight: 600,
-                          color: item.rul_hours < 24 ? 'var(--color-danger)' : 'var(--color-text)',
-                        }}
-                      >
-                        {rulVal}
-                      </span>
-                    </td>
-                    <td style={{ maxWidth: '240px' }}>
-                      <span
-                        style={{
-                          fontSize: '12px',
-                          color: 'var(--color-text-secondary)',
-                          display: 'inline-block',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          maxWidth: '240px',
-                        }}
-                        title={item.top_factors || 'Sensor baseline nominal'}
-                      >
-                        {item.top_factors || 'Sensor baseline nominal'}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '6px' }}>
+                  return (
+                    <tr
+                      key={item.component_id}
+                      onClick={() => onAnalyzeComponent && onAnalyzeComponent(item.component_id)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <td>
+                        <strong style={{ fontFamily: 'var(--font-family-mono)', color: 'var(--color-text)', fontSize: '14px' }}>
+                          {item.component_id}
+                        </strong>
+                      </td>
+                      <td>{item.component_type}</td>
+                      <td>
                         <button
-                          className="secondary-btn"
-                          style={{ height: '30px', padding: '0 10px', fontSize: '12px' }}
-                          onClick={() => handleTriggerInference(item.asset_id)}
-                          disabled={isRunning}
-                          title="Run fresh ML inference on latest sensor bus"
+                          className="btn-link"
+                          style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 600 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onInspectAsset && onInspectAsset(item.asset_id);
+                          }}
                         >
-                          {isRunning ? <LoadingSpinner size="xs" /> : <Zap size={12} />}
-                          <span>{isRunning ? 'Inferring...' : 'Re-evaluate'}</span>
+                          {item.asset_id}
                         </button>
-
+                      </td>
+                      <td>
+                        <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 800, color: isCrit ? 'var(--color-danger)' : '#f97316' }}>
+                          {item.failure_probability}%
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{ fontFamily: 'var(--font-family-mono)' }}>
+                          {item.anomaly_probability}%
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 700, color: item.health_score < 50 ? 'var(--color-danger)' : 'var(--color-warning)' }}>
+                          {item.health_score} / 100
+                        </span>
+                      </td>
+                      <td>
+                        <RiskBadge risk={item.priority_level} size="sm" />
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Sparkles size={13} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text)' }}>
+                            {item.primary_reason}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
                         <button
                           className="secondary-btn"
-                          style={{ height: '30px', padding: '0 10px', fontSize: '12px' }}
-                          onClick={() =>
-                            setSelectedAssetModal({
-                              id: item.asset_id,
-                              asset_code: item.asset_code,
-                              model: item.model,
-                              location: item.location,
-                            })
-                          }
-                          title="Open Asset Diagnostic Inspector"
+                          style={{ height: '28px', padding: '0 10px', fontSize: '11px' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAnalyzeComponent && onAnalyzeComponent(item.component_id);
+                          }}
                         >
                           <Eye size={12} />
-                          <span>Inspect</span>
+                          <span>Analyze</span>
+                          <ChevronRight size={12} />
                         </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      )}
-
-      {/* Deep Inspection Modal */}
-      {selectedAssetModal && (
-        <AssetDetailModal
-          asset={selectedAssetModal}
-          onClose={() => {
-            setSelectedAssetModal(null);
-            loadData();
-          }}
-        />
       )}
     </div>
   );
