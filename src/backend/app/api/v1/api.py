@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     health, assets, components, dashboard, telemetry, predictions,
-    anomalies, ml, readiness, recommendations, maintenance, command, copilot
+    anomalies, ml, readiness, recommendations, maintenance, command, copilot, chat
 )
 
 api_router = APIRouter()
@@ -44,4 +44,7 @@ api_router.include_router(command.router, prefix="/command", tags=["Command Inte
 
 # Include Operational Copilot endpoints (Phase 6)
 api_router.include_router(copilot.router, prefix="/copilot", tags=["Operational Copilot"])
+
+# Include Production Chatbot endpoints
+api_router.include_router(chat.router, prefix="/chat", tags=["SentinelAI Chatbot"])
 

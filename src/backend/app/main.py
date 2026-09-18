@@ -59,6 +59,10 @@ app.add_middleware(
 # Mount API v1 Routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
+# Also mount /api/chat directly for standard root API routing
+from app.api.v1.endpoints import chat
+app.include_router(chat.router, prefix="/api/chat", tags=["SentinelAI Chatbot"])
+
 @app.api_route(
     "/",
     methods=["GET", "HEAD"],
