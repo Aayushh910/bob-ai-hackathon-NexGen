@@ -1,11 +1,28 @@
 /**
  * SentinelAI — Centralized API Configuration
- * Manages environment-based URLs and verified backend endpoint routes.
+ * Supports both Local Development and Cloud Deployed environments.
+ *
+ * Frontend (Vercel): https://sentinel-ai-ibm-bob.vercel.app/
+ * Backend  (Render): https://bob-ai-hackathon-nexgen.onrender.com
  */
-const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8000' : 'https://bob-ai-hackathon-nexgen.onrender.com');
+
+const LOCAL_BACKEND = 'http://localhost:8000';
+const DEPLOYED_BACKEND = 'https://bob-ai-hackathon-nexgen.onrender.com';
+
+function getBaseUrl() {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  // If running locally in development mode, default to localhost:8000
+  if (import.meta.env.DEV) {
+    return LOCAL_BACKEND;
+  }
+  // When deployed to production (e.g. Vercel), route to Render cloud backend
+  return DEPLOYED_BACKEND;
+}
 
 export const API_CONFIG = {
-  BASE_URL: rawBaseUrl.replace(/\/+$/, ''),
+  BASE_URL: getBaseUrl().replace(/\/+$/, ''),
   TIMEOUT_MS: 30000,
   ENDPOINTS: {
     HEALTH: '/api/v1/health',
@@ -21,3 +38,6 @@ export const API_CONFIG = {
 };
 
 export default API_CONFIG;
+
+
+

@@ -540,11 +540,11 @@ export default function TrendsHealthView({ onAnalyzeComponent, onInspectAsset })
             style={{
               maxWidth: '520px',
               width: '100%',
-              backgroundColor: '#0d0d0d',
+              backgroundColor: 'var(--color-surface)',
               border: '1px solid var(--color-border-bright)',
               borderRadius: '10px',
               padding: '24px',
-              boxShadow: '0 12px 36px rgba(0,0,0,0.9)'
+              boxShadow: 'var(--shadow-modal, 0 16px 48px rgba(0,0,0,0.3))'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -556,7 +556,7 @@ export default function TrendsHealthView({ onAnalyzeComponent, onInspectAsset })
                     Diagnostic Summary: {summaryModalItem.component_id}
                   </h3>
                   <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                    Parent Asset: <strong>{summaryModalItem.asset_id}</strong> &bull; Assembly: <strong>{summaryModalItem.component_type}</strong>
+                    Parent Asset: <strong style={{ color: 'var(--color-text)' }}>{summaryModalItem.asset_id}</strong> &bull; Assembly: <strong style={{ color: 'var(--color-text)' }}>{summaryModalItem.component_type}</strong>
                   </span>
                 </div>
               </div>
@@ -572,29 +572,29 @@ export default function TrendsHealthView({ onAnalyzeComponent, onInspectAsset })
 
             {/* Numerical Diagnostic Summary Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '20px' }}>
-              <div style={{ padding: '12px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '6px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Trend Risk Score</span>
+              <div style={{ padding: '12px', backgroundColor: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Trend Risk Score</span>
                 <div style={{ fontSize: '20px', fontFamily: 'var(--font-family-mono)', fontWeight: 800, color: summaryModalItem.trend_risk >= 70 ? 'var(--color-danger)' : 'var(--color-text)', marginTop: '2px' }}>
                   {summaryModalItem.trend_risk !== undefined ? `${summaryModalItem.trend_risk} / 100` : '--'}
                 </div>
               </div>
 
-              <div style={{ padding: '12px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '6px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Health Score</span>
+              <div style={{ padding: '12px', backgroundColor: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Health Score</span>
                 <div style={{ fontSize: '20px', fontFamily: 'var(--font-family-mono)', fontWeight: 800, color: summaryModalItem.health_score < 50 ? 'var(--color-danger)' : 'var(--color-success)', marginTop: '2px' }}>
                   {summaryModalItem.health_score} / 100
                 </div>
               </div>
 
-              <div style={{ padding: '12px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '6px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Priority Level</span>
+              <div style={{ padding: '12px', backgroundColor: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Priority Level</span>
                 <div style={{ marginTop: '4px' }}>
                   <RiskBadge risk={summaryModalItem.priority_level} size="md" />
                 </div>
               </div>
 
-              <div style={{ padding: '12px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '6px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Failure Risk</span>
+              <div style={{ padding: '12px', backgroundColor: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Failure Risk</span>
                 <div style={{ fontSize: '20px', fontFamily: 'var(--font-family-mono)', fontWeight: 800, color: summaryModalItem.failure_probability >= 70 ? 'var(--color-danger)' : 'var(--color-warning)', marginTop: '2px' }}>
                   {summaryModalItem.failure_probability}%
                 </div>
@@ -602,32 +602,35 @@ export default function TrendsHealthView({ onAnalyzeComponent, onInspectAsset })
             </div>
 
             {/* Component Readiness Status Banner */}
-            <div
-              style={{
-                padding: '14px 16px',
-                borderRadius: '6px',
-                backgroundColor: summaryModalItem.failure_probability < 35 && summaryModalItem.priority_level !== 'CRITICAL'
-                  ? 'rgba(34, 197, 94, 0.1)'
-                  : 'rgba(239, 68, 68, 0.1)',
-                border: `1px solid ${summaryModalItem.failure_probability < 35 && summaryModalItem.priority_level !== 'CRITICAL' ? 'var(--color-success-border)' : 'var(--color-danger-border)'}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '20px'
-              }}
-            >
-              <div>
-                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Operational Readiness</span>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: summaryModalItem.failure_probability < 35 && summaryModalItem.priority_level !== 'CRITICAL' ? 'var(--color-success)' : 'var(--color-danger)', marginTop: '2px' }}>
-                  {summaryModalItem.failure_probability < 35 && summaryModalItem.priority_level !== 'CRITICAL' ? 'COMPONENT READY FOR SERVICE' : 'NOT READY — IMMEDIATE FIX REQUIRED'}
+            {(() => {
+              const isReady = summaryModalItem.failure_probability < 35 && summaryModalItem.priority_level !== 'CRITICAL';
+              return (
+                <div
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: '6px',
+                    backgroundColor: isReady ? 'var(--color-success-dim)' : 'var(--color-danger-dim)',
+                    border: `1px solid ${isReady ? 'var(--color-success-border)' : 'var(--color-danger-border)'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '20px'
+                  }}
+                >
+                  <div>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Operational Readiness</span>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: isReady ? 'var(--color-success)' : 'var(--color-danger)', marginTop: '2px' }}>
+                      {isReady ? 'COMPONENT READY FOR SERVICE' : 'NOT READY — IMMEDIATE FIX REQUIRED'}
+                    </div>
+                  </div>
+                  {isReady ? (
+                    <CheckCircle2 size={24} style={{ color: 'var(--color-success)' }} />
+                  ) : (
+                    <AlertOctagon size={24} style={{ color: 'var(--color-danger)' }} />
+                  )}
                 </div>
-              </div>
-              {summaryModalItem.failure_probability < 35 && summaryModalItem.priority_level !== 'CRITICAL' ? (
-                <CheckCircle2 size={24} style={{ color: 'var(--color-success)' }} />
-              ) : (
-                <AlertOctagon size={24} style={{ color: 'var(--color-danger)' }} />
-              )}
-            </div>
+              );
+            })()}
 
             {/* Modal Actions */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>

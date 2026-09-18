@@ -150,7 +150,7 @@ export default function Sidebar({
           <button
             className="sidebar-collapse-btn-parallel"
             onClick={onToggleCollapse}
-            title={isCollapsed ? 'Expand Sidebar (Ctrl+[)' : 'Collapse Sidebar (Ctrl+[)'}
+            title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
             aria-label={isCollapsed ? 'Expand navigation sidebar' : 'Collapse navigation sidebar'}
           >
             {isCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
