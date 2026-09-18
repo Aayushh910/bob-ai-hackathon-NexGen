@@ -149,204 +149,461 @@
   color: var(--color-text-muted);
 }
 
-/* ─── Asset Detail Tabs & Sections ─── */
-.asset-detail-header-card {
+/* ─── Asset Inspection & Diagnostics Dossier ─── */
+.inspection-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 100%;
+  min-width: 0;
+}
+
+.inspection-nav-strip {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-5);
-  background-color: var(--color-bg-subtle);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  margin-bottom: var(--space-5);
   flex-wrap: wrap;
-  gap: var(--space-4);
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
 }
 
-.asset-identity-cluster {
+.inspection-nav-left {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
-.asset-identity-icon-box {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
+.inspection-breadcrumb {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: var(--color-text);
-}
-
-.asset-main-code {
-  font-size: var(--text-xl);
-  font-weight: var(--font-weight-bold);
-  font-family: var(--font-family-mono);
-  color: var(--color-text);
-}
-
-.asset-meta-sub {
+  gap: var(--space-2);
   font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
-.readiness-score-banner {
+.inspection-breadcrumb a,
+.inspection-breadcrumb button {
+  color: var(--color-text-secondary);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: inherit;
+  transition: color var(--transition-fast);
+}
+
+.inspection-breadcrumb a:hover,
+.inspection-breadcrumb button:hover {
+  color: var(--color-text);
+}
+
+/* 1. Hero Dossier Card */
+.inspection-hero-card {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: var(--space-5);
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) repeat(3, minmax(0, 1fr));
-  gap: var(--space-4);
-  align-items: center;
-  margin-bottom: var(--space-5);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  position: relative;
+  overflow: hidden;
 }
 
-.score-main-display {
+.inspection-hero-card.status-ready {
+  border-left: 3px solid var(--color-success);
+}
+
+.inspection-hero-card.status-attention {
+  border-left: 3px solid var(--color-warning);
+}
+
+.inspection-hero-card.status-not-ready {
+  border-left: 3px solid var(--color-danger);
+}
+
+.inspection-hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.inspection-hero-identity {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
-.score-num-huge {
-  font-size: 38px;
-  font-weight: 800;
-  font-family: var(--font-family-mono);
-  color: var(--color-text);
-  line-height: 1;
-}
-
-.score-sub-metric {
+.inspection-hero-title-row {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
 }
 
-.score-sub-metric-lbl {
+.inspection-asset-code {
+  font-family: var(--font-family-mono);
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+
+.inspection-asset-name {
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.inspection-hero-metadata {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
   font-size: var(--text-xs);
   color: var(--color-text-muted);
-  text-transform: uppercase;
 }
 
-.score-sub-metric-val {
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-bold);
-  font-family: var(--font-family-mono);
-  color: var(--color-text);
-}
-
-/* Explanation Block: Why is this asset in this state? */
-.explanation-block {
+.inspection-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 3px 8px;
   background-color: var(--color-bg-subtle);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4) var(--space-5);
-  margin-bottom: var(--space-5);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
 }
 
-.explanation-title {
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-semibold);
+.inspection-meta-chip strong {
   color: var(--color-text);
-  margin-bottom: var(--space-3);
+  font-weight: 600;
+}
+
+/* Operational Directive Callout */
+.inspection-directive-box {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  gap: var(--space-1);
+}
+
+.inspection-directive-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.inspection-directive-text {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-bold);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
 }
 
-.explanation-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
+.inspection-directive-text.ready {
+  background-color: var(--color-success-dim);
+  color: var(--color-success);
+  border: 1px solid var(--color-success-border);
 }
 
-.explanation-field {
+.inspection-directive-text.attention {
+  background-color: var(--color-warning-dim);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning-border);
+}
+
+.inspection-directive-text.not-ready {
+  background-color: var(--color-danger-dim);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger-border);
+}
+
+/* 2. Inspection Risk & Readiness KPI Strip */
+.inspection-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.inspection-stat-item {
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
+  gap: 4px;
 }
 
-.exp-label {
-  font-size: var(--text-xs);
+.inspection-stat-label {
+  font-size: 11px;
+  font-weight: 600;
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-.exp-value {
-  font-size: var(--text-sm);
+.inspection-stat-val {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  font-family: var(--font-family-mono);
   color: var(--color-text);
-  font-weight: var(--font-weight-medium);
+  line-height: 1.1;
 }
 
-/* Operator Actions Grid */
-.operator-actions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: var(--space-4);
-  margin-top: var(--space-4);
+.inspection-stat-val.critical {
+  color: var(--color-danger);
 }
 
-.operator-action-card {
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
+.inspection-stat-val.warning {
+  color: var(--color-warning);
+}
+
+.inspection-stat-val.nominal {
+  color: var(--color-text);
+}
+
+/* 3. Subsystems Inspection Section */
+.inspection-subsystems-panel {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   gap: var(--space-3);
 }
 
-.action-card-top {
+.inspection-assembly-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), transform var(--transition-fast);
 }
 
-.action-card-directive {
-  font-size: var(--text-sm);
+.inspection-assembly-card:hover {
+  border-color: var(--color-border-bright);
+  background-color: var(--color-surface-hover);
+  transform: translateY(-1px);
+}
+
+.inspection-assembly-card.critical {
+  border-left: 3px solid var(--color-danger);
+}
+
+.inspection-assembly-card.warning {
+  border-left: 3px solid var(--color-warning);
+}
+
+.inspection-assembly-card.nominal {
+  border-left: 3px solid var(--color-success);
+}
+
+.inspection-comp-ident {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 220px;
+}
+
+.inspection-comp-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.inspection-assembly-card.critical .inspection-comp-icon {
+  color: var(--color-danger);
+  border-color: var(--color-danger-border);
+  background-color: var(--color-danger-dim);
+}
+
+.inspection-assembly-card.warning .inspection-comp-icon {
+  color: var(--color-warning);
+  border-color: var(--color-warning-border);
+  background-color: var(--color-warning-dim);
+}
+
+.inspection-assembly-card.nominal .inspection-comp-icon {
+  color: var(--color-success);
+  border-color: var(--color-success-border);
+  background-color: var(--color-success-dim);
+}
+
+.inspection-comp-type {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.inspection-comp-id {
+  font-family: var(--font-family-mono);
+  font-size: var(--text-base);
+  font-weight: 800;
   color: var(--color-text);
-  font-weight: var(--font-weight-medium);
+  margin: 1px 0 0;
+}
+
+/* Metric Gauges within Assembly Row */
+.inspection-comp-metrics {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex: 1 1 320px;
+}
+
+.inspection-metric-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 100px;
+}
+
+.inspection-metric-lbl {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+
+.inspection-metric-val {
+  font-size: var(--text-base);
+  font-weight: 800;
+  font-family: var(--font-family-mono);
+  color: var(--color-text);
+}
+
+.inspection-metric-val.text-danger {
+  color: var(--color-danger);
+}
+
+.inspection-metric-val.text-warning {
+  color: var(--color-warning);
+}
+
+.inspection-metric-val.text-success {
+  color: var(--color-success);
+}
+
+/* Micro Meter Bar */
+.inspection-micro-meter-bg {
+  width: 100%;
+  max-width: 80px;
+  height: 4px;
+  background-color: var(--color-border);
+  border-radius: var(--radius-full);
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.inspection-micro-meter-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+}
+
+.inspection-comp-rationale {
+  flex: 1 1 200px;
+}
+
+.inspection-rationale-text {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
   line-height: 1.4;
 }
 
-.action-card-btns {
+.inspection-comp-action {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-}
-
-/* Telemetry Gauges Grid */
-.telemetry-gauges-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: var(--space-3);
-  margin-bottom: var(--space-5);
+  flex-shrink: 0;
 }
 
-.telemetry-gauge-box {
+/* 4. Operational Transducer Envelope Matrix */
+.inspection-telemetry-panel {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.inspection-telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+
+.inspection-telemetry-tile {
+  background-color: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
-.gauge-name {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
+.inspection-tile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.inspection-tile-title {
+  font-size: 11px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  color: var(--color-text-muted);
 }
 
-.gauge-data-value {
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-bold);
+.inspection-tile-value {
   font-family: var(--font-family-mono);
+  font-size: var(--text-lg);
+  font-weight: 700;
   color: var(--color-text);
+  margin: 2px 0;
+}
+
+.inspection-tile-envelope {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* 5. Inspection Quick Action Bar */
+.inspection-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
 }

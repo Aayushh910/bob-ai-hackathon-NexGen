@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, BigInteger, String, DateTime
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -6,46 +6,41 @@ from app.core.database import Base
 class Asset(Base):
     __tablename__ = "assets"
 
-    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    asset_code = Column(String(50), unique=True, index=True, nullable=False)
-    asset_type = Column(String(50), nullable=False, index=True)
-    model = Column(String(100), nullable=False)
-    manufacturer = Column(String(100), nullable=True)
-    year = Column(Integer, nullable=True)
-    location = Column(String(100), nullable=False)
-    status = Column(String(50), nullable=False, default="ACTIVE", index=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
+    asset_id = Column(String(50), unique=True, nullable=False, index=True)
+    asset_name = Column(String(100), nullable=True)
+    asset_type = Column(String(50), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
+    components = relationship(
+        "Component",
+        back_populates="asset",
+        cascade="all, delete-orphan",
+        primaryjoin="Asset.asset_id == Component.asset_id"
+    )
     sensor_readings = relationship(
         "SensorReading",
         back_populates="asset",
-        cascade="all, delete-orphan"
-    )
-    maintenance_records = relationship(
-        "MaintenanceRecord",
-        back_populates="asset",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        primaryjoin="Asset.asset_id == SensorReading.asset_id"
     )
     predictions = relationship(
         "Prediction",
         back_populates="asset",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        primaryjoin="Asset.asset_id == Prediction.asset_id"
     )
-    anomalies = relationship(
-        "Anomaly",
+    trend_records = relationship(
+        "TrendAnalysis",
         back_populates="asset",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        primaryjoin="Asset.asset_id == TrendAnalysis.asset_id"
     )
-    recommendations = relationship(
-        "Recommendation",
+    status_records = relationship(
+        "AssetStatus",
         back_populates="asset",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        primaryjoin="Asset.asset_id == AssetStatus.asset_id"
     )
-    readiness_assessments = relationship(
-        "ReadinessAssessment",
-        back_populates="asset",
-        cascade="all, delete-orphan"
-    )
-

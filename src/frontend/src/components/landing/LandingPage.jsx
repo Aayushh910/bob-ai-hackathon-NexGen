@@ -9,18 +9,13 @@ import {
   ArrowRight,
   TrendingUp,
   Wrench,
-  Cpu,
   BarChart3,
-  Layers,
   Lock,
-  ChevronRight,
   ChevronDown,
   ShieldCheck,
   AlertOctagon,
-  Gauge,
   Sparkles,
-  Terminal,
-  Clock
+  Terminal
 } from 'lucide-react';
 import TacticalBackground from './TacticalBackground';
 
@@ -29,59 +24,43 @@ export default function LandingPage({ onEnter }) {
   const [selectedAssetKey, setSelectedAssetKey] = useState('A001');
   const [simulateAnomaly, setSimulateAnomaly] = useState(false);
 
-  // Asset configurations for the interactive preview HUD
+  // Real SentinelAI tactical asset configurations for the interactive preview HUD
   const assetProfiles = {
     A001: {
       code: 'A001',
-      name: 'Eurofighter Typhoon',
-      type: 'Air Superiority Fighter',
-      depot: 'Tactical Air Command • Wing 3',
-      baseScore: 94,
-      rul: '240+ Hours',
+      name: 'Tactical Asset A001',
+      type: 'Ground Vehicle',
+      depot: 'Depot Alpha • Sector 1',
+      baseScore: 92,
+      rul: 'Nominal Envelope',
       status: 'MISSION READY',
       statusClass: 'ready',
       vibrationBase: 1.25,
       tempBase: 78.4,
       pressureBase: 2150,
       hydraulicsBase: 155,
-      failureProb: '4.2%',
-      directive: 'Routine continuous HUMS telemetry surveillance. Cleared for sortie roster.'
+      failureProb: '9.3%',
+      directive: 'All 4 component subsystems nominal. Cleared for standard operational deployment.'
     },
-    A003: {
-      code: 'A003',
-      name: 'Sea King Heavy Transport',
-      type: 'Maritime Utility Transport',
-      depot: 'Naval Depot Alpha • Sector 7',
-      baseScore: 28,
-      rul: '8.4 Hours',
-      status: 'CRITICAL / GROUND HOLD',
+    A035: {
+      code: 'A035',
+      name: 'Tactical Asset A035',
+      type: 'Ground Vehicle',
+      depot: 'Depot Alpha • Sector 3',
+      baseScore: 22,
+      rul: 'Critical Horizon',
+      status: 'NOT READY / HOLD',
       statusClass: 'critical',
       vibrationBase: 4.85,
       tempBase: 104.2,
       pressureBase: 1820,
       hydraulicsBase: 110,
-      failureProb: '86.4%',
-      directive: 'Ground asset immediately. High thermal variance detected in Turbine Bearing #2.'
-    },
-    A007: {
-      code: 'A007',
-      name: 'Naval Gas Turbine Unit',
-      type: 'Propulsion Turbine Bus',
-      depot: 'Drydock Engineering • Bay 2',
-      baseScore: 62,
-      rul: '42.0 Hours',
-      status: 'DEGRADED / CAUTION',
-      statusClass: 'degraded',
-      vibrationBase: 2.80,
-      tempBase: 88.5,
-      pressureBase: 1980,
-      hydraulicsBase: 138,
-      failureProb: '48.1%',
-      directive: 'Schedule depot intervention within 48h. Hydraulic pressure drift identified.'
+      failureProb: '84.8%',
+      directive: 'Immediate ground hold. Critical failure probability in Hydraulic System (A035-HYD).'
     }
   };
 
-  const activeProfile = assetProfiles[selectedAssetKey];
+  const activeProfile = assetProfiles[selectedAssetKey] || assetProfiles.A001;
 
   // Live telemetry pulse
   const [telemetry, setTelemetry] = useState({
@@ -94,7 +73,7 @@ export default function LandingPage({ onEnter }) {
 
   // Dynamic rotating defence taglines (short, punchy statements)
   const taglines = [
-    'Guaranteed Before Takeoff.',
+    'Guaranteed Before Deployment.',
     'Zero Unplanned Downtime.',
     'Autonomous Fleet Defense.',
     'Predictive Failure Clearance.',
@@ -137,15 +116,19 @@ export default function LandingPage({ onEnter }) {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      const p = assetProfiles[selectedAssetKey];
+      const p = assetProfiles[selectedAssetKey] || assetProfiles.A001;
       const anomMultiplier = simulateAnomaly ? 1.45 : 1.0;
-      setTelemetry((prev) => ({
-        vibration: +(p.vibrationBase * anomMultiplier + (Math.random() - 0.5) * 0.15).toFixed(2),
-        temp: +(p.tempBase * anomMultiplier + (Math.random() - 0.5) * 1.2).toFixed(1),
-        pressure: Math.floor(p.pressureBase * (simulateAnomaly ? 0.88 : 1.0) + (Math.random() - 0.5) * 20),
-        hydraulics: Math.floor(p.hydraulicsBase * (simulateAnomaly ? 0.85 : 1.0) + (Math.random() - 0.5) * 4),
-        tick: prev.tick + 1
-      }));
+      setTelemetry((prev) => {
+        const nextTick = prev.tick + 1;
+        const wave = Math.sin(nextTick * 0.2);
+        return {
+          vibration: +(p.vibrationBase * anomMultiplier + wave * 0.08).toFixed(2),
+          temp: +(p.tempBase * anomMultiplier + wave * 0.6).toFixed(1),
+          pressure: Math.floor(p.pressureBase * (simulateAnomaly ? 0.88 : 1.0) + wave * 10),
+          hydraulics: Math.floor(p.hydraulicsBase * (simulateAnomaly ? 0.85 : 1.0) + wave * 3),
+          tick: nextTick
+        };
+      });
     }, 1200);
     return () => clearInterval(timer);
   }, [selectedAssetKey, simulateAnomaly]);
@@ -422,7 +405,7 @@ export default function LandingPage({ onEnter }) {
           <div className="cockpit-topbar">
             <div className="cockpit-asset-selector">
               <span className="selector-lead-lbl">SELECT ASSET:</span>
-              {['A001', 'A003', 'A007'].map((key) => (
+              {Object.keys(assetProfiles).map((key) => (
                 <button
                   key={key}
                   className={`cockpit-tab-btn ${selectedAssetKey === key ? 'active' : ''}`}
@@ -432,7 +415,7 @@ export default function LandingPage({ onEnter }) {
                   }}
                 >
                   <span className="tab-asset-dot" />
-                  <span>{key} ({assetProfiles[key].name.split(' ')[0]})</span>
+                  <span>{key} ({assetProfiles[key]?.name?.split(' ')[0] || key})</span>
                 </button>
               ))}
             </div>

@@ -15,9 +15,9 @@ export class ApiError extends Error {
 // In-flight GET request deduplication map to prevent identical concurrent backend calls
 const inFlightRequests = new Map();
 
-// Response Cache for GET requests (Memory + SessionStorage for persistence across tab switching)
+// Response Cache for GET requests (Memory + SessionStorage for fast navigation deduplication)
 const responseCache = new Map();
-const DEFAULT_CACHE_TTL_MS = 60 * 1000; // 60 seconds fresh TTL
+const DEFAULT_CACHE_TTL_MS = 5 * 1000; // 5 seconds fresh TTL for real-time telemetry
 
 function getCacheKey(url) {
   return `sentinel_cache_${url}`;
@@ -145,20 +145,6 @@ export async function apiClient(endpoint, options = {}) {
         // Retry once after brief pause
         await new Promise((resolve) => setTimeout(resolve, 800));
         return executeRequest(retriesLeft - 1);
-      }
-
-      // Check if stale cache is available as emergency fallback before failing
-      if (isGet) {
-        try {
-          const stale = sessionStorage.getItem(getCacheKey(url));
-          if (stale) {
-            const parsed = JSON.parse(stale);
-            if (parsed && parsed.data) {
-              console.warn(`Serving stale cached fallback for ${url} after fetch failure.`);
-              return parsed.data;
-            }
-          }
-        } catch (e) {}
       }
 
       if (error.name === 'AbortError') {

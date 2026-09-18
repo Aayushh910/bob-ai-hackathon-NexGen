@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -22,13 +22,13 @@ export function StatusBadge({ status = 'READY', size = 'md', label = null }) {
   if (norm === 'READY' || norm === 'ACTIVE' || norm === 'NOMINAL' || norm === 'OPERATIONAL' || norm === 'HEALTHY' || norm === 'PASSED') {
     badgeClass = 'badge-ready';
     Icon = CheckCircle2;
-  } else if (norm === 'CAUTION' || norm === 'WARNING' || norm === 'ADVISORY' || norm === 'DUE' || norm === 'MAINTENANCE') {
+  } else if (norm === 'ATTENTION' || norm === 'CAUTION' || norm === 'WARNING' || norm === 'ADVISORY') {
     badgeClass = 'badge-caution';
     Icon = AlertTriangle;
   } else if (norm === 'DEGRADED' || norm === 'CONSTRAINED') {
     badgeClass = 'badge-degraded';
     Icon = AlertTriangle;
-  } else if (norm === 'CRITICAL' || norm === 'NOT_READY' || norm === 'GROUNDED' || norm === 'URGENT' || norm === 'OVERDUE' || norm === 'FAILED') {
+  } else if (norm === 'CRITICAL' || norm === 'NOT_READY' || norm === 'GROUNDED' || norm === 'URGENT' || norm === 'FAILED') {
     badgeClass = 'badge-critical';
     Icon = AlertOctagon;
   } else {
@@ -67,7 +67,7 @@ export function RiskBadge({ risk = 'LOW', size = 'md' }) {
   return (
     <span className={'sentinel-badge ' + badgeClass + ' sentinel-badge-' + size} role="status">
       <Icon size={iconSize} aria-hidden="true" />
-      <span>{norm} RISK</span>
+      <span>{norm} PRIORITY</span>
     </span>
   );
 }
@@ -86,29 +86,25 @@ export function LoadingSpinner({ size = 'md', variant = 'default', className = '
 
 export function LoadingState({
   message = 'Loading operational telemetry...',
-  subtext = 'Synthesizing database streams and diagnostic models',
+  subtext = 'Connecting to Neon PostgreSQL database and diagnostic services',
   size = 'md',
   minHeight = null,
   showPercentage = true,
-  percentage = null,
   className = ''
 }) {
-  const [autoProgress, setAutoProgress] = React.useState(18);
+  const [percent, setPercent] = useState(18);
 
-  React.useEffect(() => {
-    if (percentage !== null) return;
+  useEffect(() => {
+    if (!showPercentage) return;
     const interval = setInterval(() => {
-      setAutoProgress((prev) => {
-        if (prev < 45) return prev + Math.floor(Math.random() * 8) + 6;
-        if (prev < 78) return prev + Math.floor(Math.random() * 5) + 3;
-        if (prev < 95) return prev + Math.floor(Math.random() * 3) + 1;
-        return prev;
+      setPercent((prev) => {
+        if (prev >= 94) return 94;
+        const jump = Math.floor(Math.random() * 12) + 6;
+        return Math.min(prev + jump, 94);
       });
-    }, 240);
+    }, 260);
     return () => clearInterval(interval);
-  }, [percentage]);
-
-  const currentPercent = percentage !== null ? Math.min(100, Math.max(0, percentage)) : autoProgress;
+  }, [showPercentage]);
 
   return (
     <div
@@ -118,25 +114,23 @@ export function LoadingState({
       aria-live="polite"
     >
       <LoadingSpinner size={size} />
-      {message && <div className="loading-state-title">{message}</div>}
-      {subtext && <div className="loading-state-sub">{subtext}</div>}
+      {message && <div className="loading-state-title" style={{ marginTop: '12px', fontWeight: 600 }}>{message}</div>}
+      {subtext && <div className="loading-state-sub" style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>{subtext}</div>}
       {showPercentage && (
-        <div className="loading-progress-container">
-          <div className="loading-progress-bar-bg">
-            <div
-              className="loading-progress-bar-fill"
-              style={{ width: `${currentPercent}%` }}
-            />
+        <div style={{ width: '220px', marginTop: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontFamily: 'var(--font-family-mono)', color: 'var(--color-text-muted)', marginBottom: '4px' }}>
+            <span>DATA PIPELINE</span>
+            <span style={{ fontWeight: 700, color: 'var(--color-text)' }}>{percent}%</span>
           </div>
-          <div className="loading-progress-meta">
-            <span className="loading-percentage-text">{currentPercent}%</span>
-            <span className="loading-status-ticker">
-              {currentPercent < 35
-                ? 'Connecting to telemetry nodes...'
-                : currentPercent < 75
-                ? 'Compiling predictive curves & work orders...'
-                : 'Verifying data integrity...'}
-            </span>
+          <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--color-border)', borderRadius: '2px', overflow: 'hidden' }}>
+            <div
+              style={{
+                width: `${percent}%`,
+                height: '100%',
+                backgroundColor: 'var(--color-success)',
+                transition: 'width 0.26s ease-out'
+              }}
+            />
           </div>
         </div>
       )}
@@ -155,23 +149,17 @@ export function KpiCard({
   loading = false,
   className = ''
 }) {
-  let valColorClass = 'text-primary';
-  if (variant === 'ready' || variant === 'success') valColorClass = 'text-emerald';
-  else if (variant === 'caution' || variant === 'warning') valColorClass = 'text-amber';
-  else if (variant === 'critical' || variant === 'danger') valColorClass = 'text-rose';
-  else if (variant === 'cyan' || variant === 'accent') valColorClass = 'text-cyan';
-
-  const glowClass = variant !== 'default' ? 'card-glow-' + variant : '';
-  const cardClass = 'kpi-card ' + glowClass + ' ' + className;
+  const variantClass = variant && variant !== 'default' ? `kpi-variant-${variant}` : '';
+  const cardClass = `kpi-card ${variantClass} ${className}`.trim();
 
   return (
-    <div className={cardClass.trim()}>
+    <div className={cardClass}>
       <div className="kpi-header">
         <span className="kpi-title">{title}</span>
-        {Icon && <Icon size={18} className={'kpi-icon ' + valColorClass} aria-hidden="true" />}
+        {Icon && <Icon size={18} className="kpi-icon" aria-hidden="true" />}
       </div>
 
-      <div className={'kpi-value ' + valColorClass} style={{ minHeight: '38px', display: 'flex', alignItems: 'center' }}>
+      <div className="kpi-value" style={{ minHeight: '38px', display: 'flex', alignItems: 'center' }}>
         {loading ? (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
             <LoadingSpinner size="sm" />
@@ -290,3 +278,6 @@ export function EmptyState({
     </div>
   );
 }
+
+export { default as ThemeDropdown } from './ThemeDropdown';
+

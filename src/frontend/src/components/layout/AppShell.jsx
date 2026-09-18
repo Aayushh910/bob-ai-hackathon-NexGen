@@ -3,9 +3,7 @@ import Sidebar from './Sidebar';
 import TopHeader from './TopHeader';
 import NotificationCenter from './NotificationCenter';
 import CommandPalette from './CommandPalette';
-import AssetDetailModal from '../fleet/AssetDetailModal';
-import { getFleetAnomalies } from '../../api/ml';
-import { getRecommendations, updateRecommendationStatus } from '../../api/readiness';
+import { getCriticalComponents } from '../../api/dashboard';
 import { getAssets } from '../../api/assets';
 
 export default function AppShell({
@@ -14,6 +12,7 @@ export default function AppShell({
   user,
   onLogout,
   systemHealthy = true,
+  onInspectAsset,
   children
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -25,7 +24,6 @@ export default function AppShell({
   // Global notifications & assets for search
   const [notifications, setNotifications] = useState([]);
   const [searchAssets, setSearchAssets] = useState([]);
-  const [selectedInspectAsset, setSelectedInspectAsset] = useState(null);
 
   // Sync theme attribute to <html>
   useEffect(() => {
@@ -37,7 +35,6 @@ export default function AppShell({
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // Helper to retrieve read notification IDs from localStorage
   const getReadNotificationIds = () => {
     try {
       const saved = localStorage.getItem('sentinel_read_notifications');
@@ -47,53 +44,32 @@ export default function AppShell({
     }
   };
 
-  // Load notifications and assets for quick jump
+  // Load real critical component notifications and assets for quick jump
   const loadNotifications = useCallback(async () => {
     try {
-      const [anomRes, recRes, assetsRes] = await Promise.allSettled([
-        getFleetAnomalies({ limit: 12 }),
-        getRecommendations({ status: 'OPEN', limit: 15 }),
-        getAssets({ limit: 150 })
+      const [critRes, assetsRes] = await Promise.allSettled([
+        getCriticalComponents(),
+        getAssets({ limit: 100 })
       ]);
 
       const readIds = getReadNotificationIds();
       const items = [];
-      const seen = new Set();
 
-      if (anomRes.status === 'fulfilled' && anomRes.value?.items) {
-        anomRes.value.items.forEach((a) => {
-          const id = `anom-${a.id}`;
-          const key = `anom-${a.asset_id}-${a.component_id}`;
-          if (readIds.has(id) || seen.has(key)) return;
-          seen.add(key);
+      if (critRes.status === 'fulfilled') {
+        const critList = Array.isArray(critRes.value)
+          ? critRes.value
+          : (Array.isArray(critRes.value?.components) ? critRes.value.components : []);
+        critList.forEach((c) => {
+          const id = `crit-${c.component_id}`;
+          if (readIds.has(id)) return;
           items.push({
             id,
-            asset_id: a.asset_id,
-            asset_code: a.asset_code || `Asset #${a.asset_id}`,
-            title: `Sensor Anomaly: ${a.component_id || 'Telemetry'}`,
-            description: a.description || `Deviation detected in sensor readings.`,
-            severity: a.severity || 'CRITICAL',
-            timestamp: a.detected_at,
-          });
-        });
-      }
-
-      if (recRes.status === 'fulfilled' && recRes.value?.items) {
-        recRes.value.items.forEach((r) => {
-          const id = `rec-${r.id}`;
-          const key = `rec-${r.asset_id}-${r.action_directive}`;
-          if (readIds.has(id) || seen.has(key)) return;
-          seen.add(key);
-          items.push({
-            id,
-            recommendation_id: r.id,
-            asset_id: r.asset_id,
-            asset_code: r.asset_code || `Asset #${r.asset_id}`,
-            title: `Operational Directive: ${r.priority} Priority`,
-            description: r.action_directive,
-            severity: r.priority,
-            priority: r.priority,
-            timestamp: r.created_at,
+            asset_id: c.asset_id,
+            asset_code: c.asset_id,
+            title: `Critical Failure Risk: ${c.component_id}`,
+            description: `${c.component_type} failure probability ${c.failure_probability}% — ${c.primary_reason || 'Imminent risk'}.`,
+            severity: 'CRITICAL',
+            timestamp: c.timestamp,
           });
         });
       }
@@ -112,7 +88,7 @@ export default function AppShell({
     loadNotifications();
     const handleUpdate = () => loadNotifications();
     window.addEventListener('sentinel:data-updated', handleUpdate);
-    const interval = setInterval(loadNotifications, 45000);
+    const interval = setInterval(loadNotifications, 60000);
     return () => {
       window.removeEventListener('sentinel:data-updated', handleUpdate);
       clearInterval(interval);
@@ -126,43 +102,28 @@ export default function AppShell({
       localStorage.setItem('sentinel_read_notifications', JSON.stringify(Array.from(readIds)));
     } catch (e) {}
     setNotifications([]);
-    window.dispatchEvent(new CustomEvent('sentinel:data-updated'));
   }, [notifications]);
 
-  const handleDismissNotification = useCallback((id, recId) => {
+  const handleDismissNotification = useCallback((id) => {
     const readIds = getReadNotificationIds();
     readIds.add(id);
     try {
       localStorage.setItem('sentinel_read_notifications', JSON.stringify(Array.from(readIds)));
     } catch (e) {}
     setNotifications((prev) => prev.filter((n) => n.id !== id));
-    if (recId) {
-      updateRecommendationStatus(recId, 'ACKNOWLEDGED').catch(() => {});
-    }
-    window.dispatchEvent(new CustomEvent('sentinel:data-updated'));
   }, []);
 
-  const handleAcknowledgeRecommendation = async (recId) => {
-    try {
-      await updateRecommendationStatus(recId, 'ACKNOWLEDGED');
-      handleDismissNotification(`rec-${recId}`, recId);
-    } catch (err) {
-      console.error('Failed to acknowledge recommendation:', err);
+  const handleSelectAsset = (assetId) => {
+    if (onInspectAsset) {
+      onInspectAsset(assetId);
     }
-  };
-
-  const handleInspectAsset = (assetId, assetCode) => {
-    setSelectedInspectAsset({ id: assetId, asset_code: assetCode });
   };
 
   const unreadAlertCount = notifications.length;
-  const criticalCount = notifications.filter(
-    (n) => n.severity === 'CRITICAL' || n.priority === 'CRITICAL'
-  ).length;
 
   return (
     <div className="sentinel-shell">
-      {/* Persistent Left Sidebar */}
+      {/* Persistent Left Sidebar with 6 Target Navigation Items */}
       <Sidebar
         activeTab={activeTab}
         onTabChange={(tab) => {
@@ -173,8 +134,6 @@ export default function AppShell({
         onToggleCollapse={() => setIsCollapsed((prev) => !prev)}
         user={user}
         onLogout={onLogout}
-        unreadAlertCount={unreadAlertCount}
-        urgentMaintenanceCount={criticalCount}
       />
 
       {/* Main Content Area with Header */}
@@ -187,12 +146,13 @@ export default function AppShell({
           theme={theme}
           onToggleTheme={toggleTheme}
           systemHealthy={systemHealthy}
-          user={user}
           onMobileMenuToggle={() => setMobileMenuOpen((prev) => !prev)}
+          searchAssets={searchAssets}
+          onInspectAsset={onInspectAsset}
         />
 
         {/* Active View Container */}
-        <main className="sentinel-main-content">
+        <main className={`sentinel-main-content ${activeTab === 'copilot' ? 'copilot-active' : ''}`}>
           {children}
         </main>
       </div>
@@ -202,12 +162,11 @@ export default function AppShell({
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
         notifications={notifications}
-        onAcknowledge={handleAcknowledgeRecommendation}
-        onInspectAsset={handleInspectAsset}
+        onInspectAsset={handleSelectAsset}
         onReadAll={handleReadAllNotifications}
         onDismiss={handleDismissNotification}
         onViewAllAlerts={() => {
-          onTabChange('alerts');
+          onTabChange('predictions');
           setIsNotificationsOpen(false);
         }}
       />
@@ -221,19 +180,8 @@ export default function AppShell({
           onTabChange(tab);
           setIsSearchOpen(false);
         }}
-        onInspectAsset={handleInspectAsset}
+        onInspectAsset={handleSelectAsset}
       />
-
-      {/* Deep Inspection Modal */}
-      {selectedInspectAsset && (
-        <AssetDetailModal
-          asset={selectedInspectAsset}
-          onClose={() => {
-            setSelectedInspectAsset(null);
-            loadNotifications();
-          }}
-        />
-      )}
     </div>
   );
 }

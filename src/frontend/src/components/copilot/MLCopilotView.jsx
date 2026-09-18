@@ -1,494 +1,519 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  BrainCircuit,
-  Shield,
-  ShieldCheck,
-  ShieldAlert,
-  AlertTriangle,
-  AlertOctagon,
-  CheckCircle2,
-  Cpu,
-  Activity,
-  RefreshCw,
-  Layers,
-  ArrowRight,
-  Clock,
-  HelpCircle,
-  Search,
-  SlidersHorizontal,
+  Bot,
   Send,
-  Sparkles,
-  TrendingUp,
-  TrendingDown,
-  Compass,
-  FileText,
-  Wrench,
-  ChevronRight
+  User,
+  AlertTriangle,
+  ShieldCheck,
+  ChevronRight,
+  RefreshCw,
+  Cpu,
+  CornerDownLeft,
+  Activity
 } from 'lucide-react';
-import { getCommandOverview, getCommandKPIs } from '../../api/command';
-import { askCopilotQuery, getSupportedIntents } from '../../api/copilot';
-import AssetDetailModal from '../fleet/AssetDetailModal';
-import { LoadingSpinner, LoadingState } from '../common/UIComponents';
-import ErrorMessage from '../common/ErrorMessage';
+import { askCopilotQuery } from '../../api/copilot';
 
-export default function MLCopilotView() {
-  const [commandData, setCommandData] = useState(null);
-  const [copilotResponse, setCopilotResponse] = useState(null);
-  const [queryInput, setQueryInput] = useState('Which assets need immediate attention?');
-  const [isLoadingQuery, setIsLoadingQuery] = useState(false);
-  const [isLoadingOverview, setIsLoadingOverview] = useState(true);
-  const [error, setError] = useState(null);
+const INITIAL_PROMPT_SUGGESTIONS = [
+  {
+    title: 'Immediate Attention Assets',
+    query: 'Which assets need immediate attention?',
+    desc: 'List grounded or critical-risk assets requiring immediate maintenance.'
+  },
+  {
+    title: 'Mission Readiness Check',
+    query: 'Which assets are NOT mission-ready?',
+    desc: 'Verify fleet combat readiness and identify grounded platforms.'
+  },
+  {
+    title: 'Highest Failure Risk',
+    query: 'Which assets have highest failure risk?',
+    desc: 'Isolate components with highest predicted probability of failure.'
+  },
+  {
+    title: 'Subsystem Diagnostics',
+    query: 'Which subsystems show abnormal telemetry?',
+    desc: 'Retrieve deep causal attribution for specific platform degradation.'
+  }
+];
 
-  // Selected asset for deep inspection modal
-  const [selectedAssetModal, setSelectedAssetModal] = useState(null);
+export default function MLCopilotView({ onInspectAsset }) {
+  const [messages, setMessages] = useState([]);
+  const [inputQuery, setInputQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
-  // Suggested operational question chips
-  const suggestedQuestions = [
-    'What is happening across the fleet?',
-    'Which assets need immediate attention?',
-    'Which assets are NOT mission-ready?',
-    'Which assets have highest failure risk?',
-    'Which assets have active anomalies?',
-    'Which assets have low RUL?',
-    'Which assets are overdue for maintenance?',
-    'How is fleet readiness changing?',
-    'What changed recently?',
-    'Why is asset A002 not ready?',
-  ];
-
-  const loadOverview = useCallback(async () => {
-    setIsLoadingOverview(true);
-    setError(null);
-    try {
-      const data = await getCommandOverview();
-      setCommandData(data);
-    } catch (err) {
-      console.error('Failed to load command overview:', err);
-      setError(err.message || 'Failed to load command intelligence.');
-    } finally {
-      setIsLoadingOverview(false);
-    }
+  // Ensure body and html overflow remain normal and are never globally locked
+  useEffect(() => {
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
   }, []);
 
-  const handleRunQuery = async (queryText) => {
-    const textToRun = queryText || queryInput;
-    if (!textToRun.trim()) return;
-
-    setIsLoadingQuery(true);
-    setError(null);
-    try {
-      const result = await askCopilotQuery(textToRun);
-      setCopilotResponse(result);
-    } catch (err) {
-      console.error('Failed to query copilot:', err);
-      setError(err.message || 'Failed to process copilot inquest.');
-    } finally {
-      setIsLoadingQuery(false);
-    }
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
-    loadOverview();
-    // Run initial query
-    handleRunQuery('Which assets need immediate attention?');
-  }, []);
+    scrollToBottom();
+  }, [messages, isLoading]);
 
-  const kpis = commandData?.kpis;
+  const handleSendMessage = async (textToSend) => {
+    const query = (textToSend || inputQuery).trim();
+    if (!query || isLoading) return;
+
+    const userMessage = {
+      id: Date.now().toString(),
+      sender: 'user',
+      text: query,
+      timestamp: new Date()
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setInputQuery('');
+    setIsLoading(true);
+
+    try {
+      const response = await askCopilotQuery(query);
+      const botMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: 'copilot',
+        text: response.reply,
+        structured: response.structured_data,
+        suggestedActions: response.suggested_actions,
+        intent: response?.intent,
+        confidence: response?.confidence,
+        evidence: response?.evidence || [],
+        related_assets: response?.related_assets || [],
+        timestamp: new Date()
+      };
+      setMessages((prev) => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Copilot request failed:', error);
+      const errorMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: 'copilot',
+        isError: true,
+        text: 'Unable to evaluate query against live telemetry. Please verify backend connection and try again.',
+        timestamp: new Date()
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
 
   return (
-    <div className="copilot-container">
-      {/* Header Bar */}
-      <div className="fleet-header">
-        <div>
-          <div className="hero-badge">
-            <BrainCircuit size={14} />
-            <span>Operational Decision Support Core</span>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: 'calc(100vh - var(--header-height, 60px) - 48px)',
+        maxHeight: 'calc(100vh - var(--header-height, 60px) - 48px)',
+        backgroundColor: 'var(--color-surface)',
+        borderRadius: '10px',
+        border: '1px solid var(--color-border)',
+        overflow: 'hidden',
+        position: 'relative'
+      }}
+    >
+      {/* Copilot Header Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 20px',
+          backgroundColor: 'var(--color-bg-subtle)',
+          borderBottom: '1px solid var(--color-border)',
+          flexShrink: 0
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              backgroundColor: 'rgba(56, 189, 248, 0.12)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#38bdf8'
+            }}
+          >
+            <Bot size={18} />
           </div>
-          <h2 className="fleet-title">SentinelAI Command Intelligence & Operational Copilot</h2>
-          <p className="fleet-subtitle">
-            Deterministic operational decision intelligence synthesizing multi-sensor telemetry, ML predictions, HUMS anomalies, mission readiness, and predictive maintenance.
-          </p>
-        </div>
-
-        <button
-          className="refresh-btn"
-          onClick={() => {
-            loadOverview();
-            handleRunQuery(queryInput);
-          }}
-          disabled={isLoadingOverview || isLoadingQuery}
-          title="Refresh Command Intelligence"
-        >
-          <RefreshCw size={15} className={isLoadingOverview || isLoadingQuery ? 'animate-spin' : ''} />
-          <span>Refresh Intelligence</span>
-        </button>
-      </div>
-
-      {error && <ErrorMessage message={error} onRetry={() => handleRunQuery(queryInput)} />}
-
-      {/* Centralized Fleet Command KPIs */}
-      <div className="command-kpi-bar glassmorphism">
-        <div className="command-kpi-item">
-          <span className="kpi-label">Fleet Readiness Index</span>
-          <div className="kpi-val-row">
-            <span className="kpi-main-val text-cyan">
-              {kpis ? `${kpis.fleet_readiness_index}%` : '--'}
-            </span>
-            <ShieldCheck size={20} className="text-cyan" />
-          </div>
-          <span className="kpi-meta">
-            {kpis ? `${kpis.ready_assets} Ready / ${kpis.not_ready_assets} Not Ready` : 'Aggregating...'}
-          </span>
-        </div>
-
-        <div className="command-kpi-item">
-          <span className="kpi-label">Readiness States</span>
-          <div className="readiness-state-pills">
-            <span className="state-pill state-ready">{kpis ? kpis.ready_assets : '--'} READY</span>
-            <span className="state-pill state-caution">{kpis ? kpis.caution_assets : '--'} CAUTION</span>
-            <span className="state-pill state-degraded">{kpis ? kpis.degraded_assets : '--'} DEGRADED</span>
-            <span className="state-pill state-not-ready">{kpis ? kpis.not_ready_assets : '--'} NOT READY</span>
-          </div>
-          <span className="kpi-meta">Total Assets: {kpis ? kpis.total_assets : '--'}</span>
-        </div>
-
-        <div className="command-kpi-item">
-          <span className="kpi-label">Critical Attention</span>
-          <div className="kpi-val-row">
-            <span className="kpi-main-val text-danger">
-              {kpis ? kpis.critical_risk_assets : '--'}
-            </span>
-            <AlertOctagon size={20} className="text-danger" />
-          </div>
-          <span className="kpi-meta">High failure risk: {kpis ? kpis.high_failure_risk_assets : '--'}</span>
-        </div>
-
-        <div className="command-kpi-item">
-          <span className="kpi-label">Maintenance Urgency</span>
-          <div className="kpi-val-row">
-            <span className="kpi-main-val text-caution">
-              {kpis ? `${kpis.critical_interventions}` : '--'}
-            </span>
-            <Wrench size={20} className="text-caution" />
-          </div>
-          <span className="kpi-meta">
-            {kpis ? `${kpis.overdue_maintenance} overdue, ${kpis.assets_requiring_maintenance} due/urgent` : 'Evaluating...'}
-          </span>
-        </div>
-
-        <div className="command-kpi-item">
-          <span className="kpi-label">Active Anomalies</span>
-          <div className="kpi-val-row">
-            <span className="kpi-main-val text-accent">
-              {kpis ? kpis.active_anomaly_count : '--'}
-            </span>
-            <Activity size={20} className="text-accent" />
-          </div>
-          <span className="kpi-meta">Open directives: {kpis ? kpis.open_recommendations : '--'}</span>
-        </div>
-      </div>
-
-      {/* Interactive Copilot Query Section */}
-      <div className="copilot-query-card glassmorphism">
-        <div className="query-card-header">
-          <Sparkles size={20} className="text-cyan" />
           <div>
-            <h3 className="query-card-title">Operational Copilot Inquest Bar</h3>
-            <p className="query-card-sub">
-              Ask natural mission readiness, maintenance, or asset-specific questions. Answers are mathematically backed by database evidence.
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 style={{ fontSize: '14px', fontWeight: 700, margin: 0, color: 'var(--color-text)' }}>
+                SentinelAI Copilot
+              </h2>
+              <span
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  padding: '1px 6px',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(34, 197, 94, 0.12)',
+                  color: '#22c55e',
+                  border: '1px solid rgba(34, 197, 94, 0.25)'
+                }}
+              >
+                LIVE ML INFERENCE
+              </span>
+            </div>
+            <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', margin: '1px 0 0' }}>
+              Tactical assistant synthesizing multi-sensor telemetry, failure predictions &amp; TreeSHAP attributions
             </p>
           </div>
         </div>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleRunQuery(queryInput);
-          }}
-          className="copilot-search-form"
-        >
-          <div className="search-input-wrap">
-            <Search size={18} className="search-icon text-muted" />
-            <input
-              type="text"
-              value={queryInput}
-              onChange={(e) => setQueryInput(e.target.value)}
-              placeholder="e.g. Which assets need immediate attention? Why is asset A002 not ready?"
-              className="copilot-text-input"
-            />
-          </div>
+        {messages.length > 0 && (
           <button
-            type="submit"
-            disabled={isLoadingQuery}
-            className="btn-copilot-send"
+            className="secondary-btn"
+            style={{ height: '28px', padding: '0 10px', fontSize: '11px' }}
+            onClick={() => setMessages([])}
           >
-            {isLoadingQuery ? (
-              <LoadingSpinner size="xs" />
-            ) : (
-              <Send size={16} />
-            )}
-            <span>{isLoadingQuery ? 'Synthesizing...' : 'Execute Inquest'}</span>
+            <RefreshCw size={12} />
+            <span>Clear Chat</span>
           </button>
-        </form>
+        )}
+      </div>
 
-        {/* Suggested Quick Question Chips */}
-        <div className="suggested-chips-bar">
-          <span className="chips-label">Command Inquests:</span>
-          <div className="chips-scroll-wrap">
-            {suggestedQuestions.map((sq, idx) => (
-              <button
-                key={idx}
-                className={`inquest-chip ${queryInput === sq ? 'active-chip' : ''}`}
-                onClick={() => {
-                  setQueryInput(sq);
-                  handleRunQuery(sq);
+      {/* Main Chat Area */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px'
+        }}
+      >
+        {/* Centered Suggestions Hero without Star Icon and with Smaller Compact Data */}
+        {messages.length === 0 ? (
+          <div
+            style={{
+              margin: 'auto',
+              maxWidth: '540px',
+              width: '100%',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              padding: '10px 0'
+            }}
+          >
+            <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--color-text)', margin: '0 0 4px' }}>
+              How can SentinelAI assist operational command today?
+            </h3>
+            <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', margin: '0 0 16px', maxWidth: '440px', lineHeight: '1.4' }}>
+              Query real-time fleet health, failure predictions, degraded platforms, or mechanical root causes in natural language.
+            </p>
+
+            {/* 2x2 Centered Suggestion Grid (Compact) */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '8px',
+                width: '100%'
+              }}
+            >
+              {INITIAL_PROMPT_SUGGESTIONS.map((item, index) => (
+                <div
+                  key={index}
+                  onClick={() => handleSendMessage(item.query)}
+                  style={{
+                    padding: '10px 14px',
+                    backgroundColor: 'var(--color-bg-subtle)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '8px',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--color-primary)';
+                    e.currentTarget.style.backgroundColor = 'var(--color-surface-hover)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--color-border)';
+                    e.currentTarget.style.backgroundColor = 'var(--color-bg-subtle)';
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text)' }}>
+                      {item.title}
+                    </span>
+                    <ChevronRight size={12} style={{ color: 'var(--color-text-muted)' }} />
+                  </div>
+                  <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', margin: 0, lineHeight: '1.3' }}>
+                    {item.desc}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          /* Active Chat Conversation Stream */
+          messages.map((msg) => (
+            <div
+              key={msg.id}
+              style={{
+                display: 'flex',
+                gap: '12px',
+                justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                maxWidth: '100%'
+              }}
+            >
+              {msg.sender === 'copilot' && (
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    backgroundColor: msg.isError ? 'rgba(239, 68, 68, 0.15)' : 'rgba(56, 189, 248, 0.12)',
+                    border: `1px solid ${msg.isError ? 'rgba(239, 68, 68, 0.3)' : 'rgba(56, 189, 248, 0.25)'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: msg.isError ? '#ef4444' : '#38bdf8',
+                    flexShrink: 0,
+                    marginTop: '2px'
+                  }}
+                >
+                  <Bot size={18} />
+                </div>
+              )}
+
+              <div
+                style={{
+                  maxWidth: msg.sender === 'user' ? '70%' : '80%',
+                  padding: '14px 18px',
+                  borderRadius: '10px',
+                  backgroundColor: msg.sender === 'user' ? '#181818' : '#0e0e0e',
+                  border: `1px solid ${msg.sender === 'user' ? '#2c2c2c' : 'var(--color-border)'}`,
+                  color: 'var(--color-text)',
+                  fontSize: '14px',
+                  lineHeight: '1.6'
                 }}
               >
-                {sq}
-              </button>
-            ))}
+                {/* Copilot Header meta */}
+                {msg.sender === 'copilot' && !msg.isError && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      marginBottom: '8px',
+                      paddingBottom: '8px',
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                      fontSize: '11px',
+                      color: 'var(--color-text-muted)'
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, color: '#38bdf8', fontFamily: 'var(--font-family-mono)' }}>
+                      INTENT: {msg.intent || 'OPERATIONAL_INFERENCE'}
+                    </span>
+                    {msg.confidence !== undefined && (
+                      <span>Confidence: {(msg.confidence * 100).toFixed(0)}%</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Message Body */}
+                <div style={{ whiteSpace: 'pre-wrap' }}>
+                  {msg.text}
+                </div>
+
+                {/* Related Assets Chips */}
+                {msg.related_assets && msg.related_assets.length > 0 && (
+                  <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+                      Isolated Platforms:
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {msg.related_assets.map((a, i) => (
+                        <button
+                          key={i}
+                          className="secondary-btn"
+                          style={{ height: '26px', padding: '0 8px', fontSize: '11px', fontFamily: 'var(--font-family-mono)' }}
+                          onClick={() => onInspectAsset && onInspectAsset(a.asset_code || a.asset_id)}
+                        >
+                          <span>{a.asset_code || `Asset #${a.asset_id}`}</span>
+                          <ChevronRight size={12} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Timestamp */}
+                <div
+                  style={{
+                    fontSize: '10px',
+                    color: 'var(--color-text-muted)',
+                    textAlign: 'right',
+                    marginTop: '8px',
+                    fontFamily: 'var(--font-family-mono)'
+                  }}
+                >
+                  {msg.timestamp?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+
+              {msg.sender === 'user' && (
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    backgroundColor: '#1f2937',
+                    border: '1px solid #374151',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#9ca3af',
+                    flexShrink: 0,
+                    marginTop: '2px'
+                  }}
+                >
+                  <User size={16} />
+                </div>
+              )}
+            </div>
+          ))
+        )}
+
+        {/* Loading Bubble */}
+        {isLoading && (
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#38bdf8'
+              }}
+            >
+              <Bot size={18} className="animate-spin" />
+            </div>
+            <div
+              style={{
+                padding: '12px 18px',
+                borderRadius: '10px',
+                backgroundColor: '#0e0e0e',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-secondary)',
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <Activity size={14} className="animate-pulse" style={{ color: '#38bdf8' }} />
+              <span>Evaluating telemetry across 2,200 sensor channels and ML failure pipelines...</span>
+            </div>
           </div>
-        </div>
+        )}
+
+        <div ref={messagesEndRef} />
       </div>
 
-      {/* Copilot Synthesized Response Box */}
-      {isLoadingQuery ? (
-        <div className="copilot-answer-panel glassmorphism" style={{ padding: '32px' }}>
-          <LoadingState
-            message="Synthesizing Operational Inquest..."
-            subtext="Interrogating multi-sensor telemetry, ML predictions, and readiness database."
-            size="md"
-            minHeight="140px"
-          />
-        </div>
-      ) : copilotResponse && (
-        <div className="copilot-answer-panel glassmorphism">
-          <div className="answer-panel-header">
-            <div className="answer-intent-tag">
-              <span className="intent-label">INTENT:</span>
-              <span className="intent-name">{copilotResponse.intent}</span>
-              <span className="intent-conf">
-                {(copilotResponse.confidence * 100).toFixed(0)}% Match
-              </span>
-            </div>
-            <span className="answer-timestamp">
-              {new Date(copilotResponse.timestamp).toLocaleTimeString()}
-            </span>
-          </div>
-
-          <div className="answer-body-box">
-            <p className="answer-text">{copilotResponse.answer}</p>
-          </div>
-
-          {/* Evidence Grid */}
-          {copilotResponse.evidence && copilotResponse.evidence.length > 0 && (
-            <div className="copilot-evidence-section">
-              <div className="evidence-header">
-                <FileText size={16} className="text-cyan" />
-                <h4>Structured Evidence Package</h4>
-              </div>
-              <div className="evidence-cards-grid">
-                {copilotResponse.evidence.map((ev, i) => (
-                  <div key={i} className="evidence-card">
-                    <div className="evidence-top">
-                      <span className="evidence-source-tag">{ev.source}</span>
-                      <span className="evidence-metric-name">{ev.metric}</span>
-                    </div>
-                    <div className="evidence-val">{String(ev.value)}</div>
-                    <div className="evidence-expl">{ev.explanation}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Recommended Next Actions */}
-          {copilotResponse.recommended_actions && copilotResponse.recommended_actions.length > 0 && (
-            <div className="copilot-actions-section">
-              <div className="actions-header">
-                <CheckCircle2 size={16} className="text-success" />
-                <h4>Prescribed Operational Actions</h4>
-              </div>
-              <ul className="actions-list">
-                {copilotResponse.recommended_actions.map((act, i) => (
-                  <li key={i} className="action-item">
-                    <ArrowRight size={14} className="text-cyan" />
-                    <span>{act}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Related Assets Cards */}
-          {copilotResponse.related_assets && copilotResponse.related_assets.length > 0 && (
-            <div className="copilot-related-assets-section">
-              <div className="related-assets-header">
-                <ShieldAlert size={16} className="text-danger" />
-                <h4>Associated Operational Assets ({copilotResponse.related_assets.length})</h4>
-              </div>
-              <div className="related-assets-grid">
-                {copilotResponse.related_assets.map((ast) => (
-                  <div key={ast.asset_id} className="related-asset-card">
-                    <div className="ast-card-top">
-                      <div>
-                        <span className="ast-code">{ast.asset_code}</span>
-                        <span className="ast-model">{ast.model}</span>
-                      </div>
-                      <span className={`status-pill-risk-${(ast.priority || 'medium').toLowerCase()}`}>
-                        {ast.readiness_state}
-                      </span>
-                    </div>
-                    <div className="ast-metrics-row">
-                      <span className="ast-chip">Score: {ast.readiness_score.toFixed(1)}%</span>
-                      {ast.failure_probability !== null && (
-                        <span className="ast-chip">Risk: {(ast.failure_probability * 100).toFixed(1)}%</span>
-                      )}
-                      {ast.rul_hours !== null && (
-                        <span className="ast-chip">RUL: {ast.rul_hours.toFixed(1)}h</span>
-                      )}
-                    </div>
-                    <div className="ast-card-footer">
-                      <span className="ast-loc">{ast.location}</span>
-                      <button
-                        className="btn-inspect-clean"
-                        onClick={() => setSelectedAssetModal({ id: ast.asset_id, asset_code: ast.asset_code })}
-                      >
-                        <span>Deep Inspect</span>
-                        <ChevronRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Command Attention Queue & Subsystem Reliability Grid */}
-      <div className="command-panels-grid">
-        {/* Command Attention Queue */}
-        <div className="command-panel-card glassmorphism">
-          <div className="panel-card-header">
-            <div className="panel-title-wrap">
-              <AlertOctagon size={18} className="text-danger" />
-              <h3>Command Attention Queue</h3>
-            </div>
-            <span className="panel-badge-count">
-              {commandData?.attention_queue?.length || 0} Assets
-            </span>
-          </div>
-          <div className="attention-queue-list">
-            {commandData?.attention_queue?.slice(0, 6).map((item) => (
-              <div
-                key={item.asset_id}
-                className="attention-queue-item"
-                onClick={() => setSelectedAssetModal({ id: item.asset_id, asset_code: item.asset_code })}
-              >
-                <div className="queue-rank-badge">#{item.rank}</div>
-                <div className="queue-item-content">
-                  <div className="queue-item-top">
-                    <span className="queue-item-code">{item.asset_code}</span>
-                    <span className={`status-badge badge-${item.attention_priority.toLowerCase()}`}>
-                      {item.attention_priority}
-                    </span>
-                  </div>
-                  <div className="queue-item-issue">{item.primary_issue}</div>
-                  <div className="queue-item-action">{item.recommended_next_action}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Subsystem Reliability Analytics */}
-        <div className="command-panel-card glassmorphism">
-          <div className="panel-card-header">
-            <div className="panel-title-wrap">
-              <Layers size={18} className="text-cyan" />
-              <h3>Subsystem Reliability Breakdown</h3>
-            </div>
-            <span className="panel-badge-subtext">Verified PostgreSQL Logs</span>
-          </div>
-          <div className="subsystems-grid">
-            {commandData?.subsystem_metrics?.map((sub, i) => (
-              <div key={i} className="subsystem-kpi-card">
-                <div className="sub-card-header">
-                  <h4>{sub.subsystem_name}</h4>
-                  <span className={`sub-anom-tag ${sub.active_anomaly_count > 0 ? 'text-danger' : 'text-success'}`}>
-                    {sub.active_anomaly_count} Anom
-                  </span>
-                </div>
-                <div className="sub-stat-row">
-                  <div>
-                    <span className="sub-label">Serviced</span>
-                    <span className="sub-val">{sub.serviced_count}</span>
-                  </div>
-                  <div>
-                    <span className="sub-label">Failures</span>
-                    <span className={`sub-val ${sub.historical_failures > 0 ? 'text-danger' : ''}`}>
-                      {sub.historical_failures}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="sub-label">Interventions</span>
-                    <span className="sub-val text-cyan">{sub.target_intervention_count}</span>
-                  </div>
-                </div>
-                <div className="sub-parts-list">
-                  <span className="parts-label">Common Parts:</span>
-                  <span className="parts-text">
-                    {sub.common_parts_replaced.length > 0 ? sub.common_parts_replaced.join(', ') : 'None'}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Chronological Recent Operational Changes Stream */}
-      {commandData?.recent_changes && commandData.recent_changes.length > 0 && (
-        <div className="changes-timeline-card glassmorphism">
-          <div className="panel-card-header">
-            <div className="panel-title-wrap">
-              <Clock size={18} className="text-cyan" />
-              <h3>Recent Operational Timeline & State Transitions</h3>
-            </div>
-            <span className="panel-badge-subtext">Chronological Event Stream</span>
-          </div>
-
-          <div className="timeline-items-list">
-            {commandData.recent_changes.slice(0, 8).map((ch, idx) => (
-              <div key={idx} className="timeline-item">
-                <div className="timeline-dot"></div>
-                <div className="timeline-content">
-                  <div className="timeline-top">
-                    <span className="timeline-code">{ch.asset_code}</span>
-                    <span className="timeline-type">{ch.change_type.replace('_', ' ')}</span>
-                    <span className="timeline-time">
-                      {new Date(ch.detected_at).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="timeline-trigger">{ch.trigger_evidence}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Asset Deep Inspection Modal */}
-      {selectedAssetModal && (
-        <AssetDetailModal
-          asset={selectedAssetModal}
-          onClose={() => {
-            setSelectedAssetModal(null);
-            loadOverview();
+      {/* Docked Chat Input Bar */}
+      <div
+        style={{
+          padding: '16px 20px',
+          backgroundColor: '#090909',
+          borderTop: '1px solid var(--color-border)',
+          flexShrink: 0
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            backgroundColor: '#121212',
+            border: '1px solid var(--color-border)',
+            borderRadius: '8px',
+            padding: '8px 14px',
+            transition: 'border-color 0.15s ease'
           }}
-        />
-      )}
+          onFocusCapture={(e) => (e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.5)')}
+          onBlurCapture={(e) => (e.currentTarget.style.borderColor = 'var(--color-border)')}
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="Ask AI Copilot (e.g. Which assets have highest failure risk?)"
+            value={inputQuery}
+            onChange={(e) => setInputQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isLoading}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--color-text)',
+              fontSize: '14px',
+              outline: 'none'
+            }}
+          />
+
+          <button
+            className="primary-btn"
+            onClick={() => handleSendMessage()}
+            disabled={isLoading || !inputQuery.trim()}
+            style={{
+              height: '34px',
+              padding: '0 14px',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>Inquire</span>
+            <Send size={13} />
+          </button>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: '8px',
+            fontSize: '11px',
+            color: 'var(--color-text-muted)'
+          }}
+        >
+          <span>Press Enter to send inquiry. SentinelAI Copilot uses multi-sensor telemetry &amp; TreeSHAP inference.</span>
+          <span>Deterministic Military HUMS AI</span>
+        </div>
+      </div>
     </div>
   );
 }
+

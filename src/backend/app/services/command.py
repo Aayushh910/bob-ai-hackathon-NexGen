@@ -1,7 +1,8 @@
-"""Command Intelligence Engine for SentinelAI (Phase 6).
+"""Command Intelligence Engine for SentinelAI.
 
-Synthesizes telemetry, ML models, anomaly detection, mission readiness,
-predictive maintenance, and directives into a unified command intelligence layer.
+# Reserved for future autonomous operational command directives and battle-management dispatch.
+# Not currently called by primary frontend navigation because the current release
+# operates on tactical HUMS telemetry diagnostics and AI Copilot interaction.
 """
 
 import logging

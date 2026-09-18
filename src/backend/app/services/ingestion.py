@@ -1,335 +1,463 @@
-import csv
 import logging
-from datetime import datetime
+import os
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
+from sqlalchemy import text
 from sqlalchemy.orm import Session
-from app.models.asset import Asset
-from app.models.sensor import SensorReading
+
 from app.core.database import SessionLocal
+from app.models.asset import Asset
+from app.models.component import Component
+from app.models.sensor import SensorReading
+from app.models.prediction import Prediction
+from app.models.explanation import PredictionExplanation
+from app.models.trend import TrendAnalysis
+from app.models.status import AssetStatus
+from app.services.shap_service import shap_service
+from app.services.trend_service import trend_service
+# Reserved for the future live telemetry ingestion and new-data ML inference phase.
+# Not currently called during live user runtime requests because the current release
+# operates exclusively on the existing validated HUMS dataset persisted in Neon PostgreSQL.
 
-logger = logging.getLogger("sentinelai.ingestion")
+logger = logging.getLogger("sentinelai.services.ingestion")
 
-REQUIRED_CSV_COLUMNS = [
-    "asset_id",
-    "timestamp",
+SENSOR_COLUMNS = [
     "temperature",
     "vibration",
     "oil_pressure",
     "fuel_pressure",
     "rpm",
-    "hydraulic_pressure"
+    "hydraulic_pressure",
+    "battery_voltage",
+    "coolant_temperature",
+    "operating_hours",
+    "load_percentage",
+    "ambient_temperature",
+    "sensor_status",
 ]
 
-class IngestionResult:
-    def __init__(self):
-        self.total_records_processed: int = 0
-        self.successful_records: int = 0
-        self.rejected_records: int = 0
-        self.duplicate_records: int = 0
-        self.assets_created: int = 0
-        self.telemetry_records_inserted: int = 0
-        self.rejection_reasons: Dict[str, int] = {}
-        self.errors: List[str] = []
+TEST_CSV_DEFINITIONS = [
+    {"filename": "engine_test.csv", "component_type": "Engine"},
+    {"filename": "battery_test.csv", "component_type": "Battery"},
+    {"filename": "fuel_pump_test.csv", "component_type": "Fuel Pump"},
+    {"filename": "hydraulic_system_test.csv", "component_type": "Hydraulic System"},
+]
 
-    def add_rejection(self, reason: str):
-        self.rejected_records += 1
-        self.rejection_reasons[reason] = self.rejection_reasons.get(reason, 0) + 1
+def _resolve_data_dir() -> Path:
+    base = Path(__file__).resolve()
+    candidates = [
+        base.parent.parent.parent.parent / "ML" / "Data",
+        base.parent.parent.parent.parent / "src" / "ML" / "Data",
+        base.parent.parent.parent / "ML" / "Data",
+        base.parent.parent.parent / "src" / "ML" / "Data",
+        Path.cwd() / "src" / "ML" / "Data",
+        Path.cwd() / "ML" / "Data",
+        Path("d:/bob-ai-hackathon-NexGen/src/ML/Data"),
+    ]
+    for cand in candidates:
+        if cand.exists() and (cand / "engine_test.csv").exists():
+            return cand
+    return base.parent.parent.parent.parent / "src" / "ML" / "Data"
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "total_records_processed": self.total_records_processed,
-            "successful_records": self.successful_records,
-            "rejected_records": self.rejected_records,
-            "duplicate_records": self.duplicate_records,
-            "assets_created": self.assets_created,
-            "telemetry_records_inserted": self.telemetry_records_inserted,
-            "rejection_reasons": self.rejection_reasons,
-            "errors": self.errors[:10]  # First 10 error messages
+def parse_iso_or_custom_timestamp(ts_val: Any) -> datetime:
+    """Parses timestamp strings into timezone-aware UTC datetime."""
+    if isinstance(ts_val, datetime):
+        if ts_val.tzinfo is None:
+            return ts_val.replace(tzinfo=timezone.utc)
+        return ts_val.astimezone(timezone.utc)
+
+    ts_str = str(ts_val).strip()
+    formats = [
+        "%d-%m-%Y %H:%M",
+        "%d-%m-%Y %H:%M:%S",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M:%S.%f",
+        "%Y-%m-%dT%H:%M:%S.%f",
+        "%Y-%m-%d",
+    ]
+    for fmt in formats:
+        try:
+            dt = datetime.strptime(ts_str, fmt)
+            return dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+
+    # Fallback to dateutil/pandas
+    dt = pd.to_datetime(ts_str, dayfirst=True).to_pydatetime()
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+class TelemetryIngestionPipeline:
+    """
+    Production-grade, idempotent CSV ingestion pipeline for HUMS telemetry and predictions.
+    Preserves strict ingestion order:
+      1. assets
+      2. components
+      3. sensor_readings
+      4. predictions
+      5. prediction_explanations
+      6. trend_analysis
+      7. asset_status
+    """
+
+    def __init__(self, data_dir: Optional[Path] = None):
+        self.data_dir = Path(data_dir or _resolve_data_dir())
+
+    def run_full_ingestion(self, db: Optional[Session] = None) -> Dict[str, Any]:
+        """Runs the complete ingestion for all 4 test datasets."""
+        should_close = False
+        if db is None:
+            db = SessionLocal()
+            should_close = True
+
+        stats = {
+            "assets_inserted": 0,
+            "components_inserted": 0,
+            "sensor_readings_inserted": 0,
+            "predictions_inserted": 0,
+            "explanations_inserted": 0,
+            "trend_records_inserted": 0,
+            "asset_status_records": 0,
+            "files_processed": [],
+            "errors": [],
         }
 
-class CSVIngestionService:
-    """
-    Production ingestion pipeline for SentinelAI telemetry datasets.
-    Supports validation, timestamp normalization, asset auto-establishment,
-    duplicate prevention, transaction safety, and batch insertion.
-    """
-
-    def parse_float(self, value: Any, default: Optional[float] = None) -> Optional[float]:
-        if value is None or str(value).strip() == "":
-            return default
         try:
-            return float(value)
-        except (ValueError, TypeError):
-            return default
+            # 1. Collect and preprocess all datasets
+            loaded_dfs = []
+            for item in TEST_CSV_DEFINITIONS:
+                fname = item["filename"]
+                ctype = item["component_type"]
+                fpath = self.data_dir / fname
+                if not fpath.exists():
+                    # Check alternate names (e.g. hydraulic_test.csv)
+                    if "hydraulic" in fname:
+                        alt_path = self.data_dir / "hydraulic_test.csv"
+                        if alt_path.exists():
+                            fpath = alt_path
 
-    def parse_int(self, value: Any, default: Optional[int] = None) -> Optional[int]:
-        if value is None or str(value).strip() == "":
-            return default
-        try:
-            return int(float(value))
-        except (ValueError, TypeError):
-            return default
-
-    def parse_timestamp(self, ts_str: str) -> Optional[datetime]:
-        if not ts_str:
-            return None
-        ts_clean = ts_str.strip()
-        for fmt in (
-            "%Y-%m-%d %H:%M:%S",
-            "%Y-%m-%dT%H:%M:%S",
-            "%Y-%m-%d %H:%M:%S.%f",
-            "%Y-%m-%dT%H:%M:%S.%f",
-            "%Y-%m-%d",
-        ):
-            try:
-                return datetime.strptime(ts_clean, fmt)
-            except ValueError:
-                pass
-        return None
-
-    def ensure_assets(
-        self,
-        db: Session,
-        asset_codes: Set[str],
-        result: IngestionResult
-    ) -> Dict[str, int]:
-        """
-        Verify existing assets and create missing ones in a single query.
-        Returns a mapping of asset_code -> asset.id.
-        """
-        existing = db.query(Asset).filter(Asset.asset_code.in_(asset_codes)).all()
-        code_to_id = {a.asset_code: a.id for a in existing}
-
-        missing_codes = asset_codes - set(code_to_id.keys())
-        if missing_codes:
-            for code in sorted(missing_codes):
-                new_asset = Asset(
-                    asset_code=code,
-                    asset_type="Heavy Equipment",
-                    model="Sentinel-HUMS-V1",
-                    manufacturer="Defense Systems Corp",
-                    year=2024,
-                    location="Main Depot Sector 4",
-                    status="ACTIVE"
-                )
-                db.add(new_asset)
-                result.assets_created += 1
-
-            db.commit()
-            # Refresh lookup
-            all_assets = db.query(Asset).filter(Asset.asset_code.in_(asset_codes)).all()
-            code_to_id = {a.asset_code: a.id for a in all_assets}
-
-        return code_to_id
-
-    def ingest_sensor_csv(
-        self,
-        file_path: str,
-        db: Session,
-        batch_size: int = 2000,
-        dry_run: bool = False
-    ) -> IngestionResult:
-        result = IngestionResult()
-        path = Path(file_path)
-
-        if not path.exists():
-            result.errors.append(f"File not found: {file_path}")
-            return result
-
-        logger.info("Starting CSV ingestion from: %s (Dry Run: %s)", file_path, dry_run)
-
-        # 1. First Pass: Scan for headers and unique asset IDs
-        unique_asset_codes: Set[str] = set()
-        with open(path, mode="r", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f)
-            if not reader.fieldnames:
-                result.errors.append("CSV file has no headers.")
-                return result
-
-            missing_headers = [col for col in REQUIRED_CSV_COLUMNS if col not in reader.fieldnames]
-            if missing_headers:
-                result.errors.append(f"Missing required CSV columns: {missing_headers}")
-                return result
-
-            for row in reader:
-                code = row.get("asset_id", "").strip()
-                if code:
-                    unique_asset_codes.add(code)
-
-        logger.info("Found %d unique asset codes in dataset.", len(unique_asset_codes))
-
-        # 2. Establish assets in PostgreSQL
-        asset_map = self.ensure_assets(db, unique_asset_codes, result)
-
-        # 3. Second Pass: Read and validate rows in batches
-        seen_keys: Set[Tuple[int, datetime, Optional[str]]] = set()
-        batch_objects: List[SensorReading] = []
-
-        with open(path, mode="r", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f)
-
-            for line_no, row in enumerate(reader, start=2):
-                result.total_records_processed += 1
-
-                asset_code = row.get("asset_id", "").strip()
-                if not asset_code or asset_code not in asset_map:
-                    result.add_rejection(f"Invalid or missing asset_id at line {line_no}")
+                if not fpath.exists():
+                    msg = f"Test dataset not found: {fname} at {fpath}"
+                    logger.error(msg)
+                    stats["errors"].append(msg)
                     continue
 
-                asset_id = asset_map[asset_code]
-                ts_str = row.get("timestamp", "")
-                ts = self.parse_timestamp(ts_str)
-                if not ts:
-                    result.add_rejection(f"Invalid timestamp format at line {line_no}")
-                    continue
+                logger.info(f"Reading dataset: {fpath}")
+                df = pd.read_csv(fpath)
 
-                component_id = row.get("component_id", "").strip() or None
-                dedup_key = (asset_id, ts, component_id)
+                # Special Rule for Battery CSV:
+                # The Battery prediction CSV has an additional last column. It must be IGNORED completely.
+                if ctype == "Battery" or "battery" in fname.lower():
+                    logger.info("Applying Battery CSV Special Rule: Dropping final column completely.")
+                    df = df.iloc[:, :-1]
 
-                if dedup_key in seen_keys:
-                    result.duplicate_records += 1
-                    continue
-                seen_keys.add(dedup_key)
+                df["source_file"] = fname
+                df["component_type"] = ctype
+                df["parsed_timestamp"] = df["timestamp"].apply(parse_iso_or_custom_timestamp)
+                loaded_dfs.append((ctype, fname, df))
+                stats["files_processed"].append(fname)
 
-                # Validate core sensor metrics
-                temp = self.parse_float(row.get("temperature"))
-                vib = self.parse_float(row.get("vibration"))
-                oil = self.parse_float(row.get("oil_pressure"))
-                fuel = self.parse_float(row.get("fuel_pressure"))
-                rpm = self.parse_float(row.get("rpm"))
-                hyd = self.parse_float(row.get("hydraulic_pressure"))
+            if not loaded_dfs:
+                raise RuntimeError("No datasets available for ingestion.")
 
-                if any(v is None for v in (temp, vib, oil, fuel, rpm, hyd)):
-                    result.add_rejection(f"Malformed numerical telemetry value at line {line_no}")
-                    continue
+            # 2. Ingest Assets (Step 1)
+            all_asset_ids = set()
+            for _, _, df in loaded_dfs:
+                all_asset_ids.update(df["asset_id"].unique())
 
-                reading = SensorReading(
-                    asset_id=asset_id,
-                    timestamp=ts,
-                    component_id=component_id,
-                    component_type=row.get("component_type", "").strip() or None,
-                    temperature=temp,
-                    vibration=vib,
-                    oil_pressure=oil,
-                    fuel_pressure=fuel,
-                    rpm=rpm,
-                    hydraulic_pressure=hyd,
-                    battery_voltage=self.parse_float(row.get("battery_voltage")),
-                    coolant_temperature=self.parse_float(row.get("coolant_temperature")),
-                    operating_hours=self.parse_float(row.get("operating_hours")),
-                    load_percentage=self.parse_float(row.get("load_percentage")),
-                    ambient_temperature=self.parse_float(row.get("ambient_temperature")),
-                    sensor_status=row.get("sensor_status", "Normal").strip() or "Normal",
-                    anomaly_label=self.parse_int(row.get("anomaly_label"), 0),
-                    failure_within_50_hours=self.parse_int(row.get("failure_within_50_hours"), 0),
-                    engine_temperature=temp,
-                    fuel_level=self.parse_float(row.get("load_percentage"), 50.0)
-                )
+            logger.info(f"Processing {len(all_asset_ids)} unique assets...")
+            existing_assets = {a[0] for a in db.query(Asset.asset_id).all()}
+            new_assets = []
+            for aid in all_asset_ids:
+                if aid not in existing_assets:
+                    new_assets.append(Asset(
+                        asset_id=aid,
+                        asset_name=f"Tactical Asset {aid}",
+                        asset_type="Ground Vehicle"
+                    ))
+            if new_assets:
+                db.bulk_save_objects(new_assets)
+                db.commit()
+            stats["assets_inserted"] = len(all_asset_ids)
 
-                batch_objects.append(reading)
-                result.successful_records += 1
+            # 3. Ingest Components (Step 2)
+            unique_components = {}
+            for ctype, _, df in loaded_dfs:
+                for _, row in df[["component_id", "asset_id", "component_type"]].drop_duplicates().iterrows():
+                    unique_components[row["component_id"]] = (row["asset_id"], row["component_type"])
 
-                if len(batch_objects) >= batch_size:
-                    if not dry_run:
-                        db.bulk_save_objects(batch_objects)
-                        db.commit()
-                    result.telemetry_records_inserted += len(batch_objects)
-                    batch_objects.clear()
+            logger.info(f"Processing {len(unique_components)} unique components...")
+            existing_components = {c[0] for c in db.query(Component.component_id).all()}
+            new_components = []
+            for cid, (aid, ctype) in unique_components.items():
+                if cid not in existing_components:
+                    new_components.append(Component(
+                        component_id=cid,
+                        asset_id=aid,
+                        component_type=ctype
+                    ))
+            if new_components:
+                db.bulk_save_objects(new_components)
+                db.commit()
+            stats["components_inserted"] = len(unique_components)
 
-            # Insert remaining records
-            if batch_objects:
-                if not dry_run:
-                    db.bulk_save_objects(batch_objects)
+            # 4. Ingest Sensor Readings & Trend Analysis & Predictions (Steps 3-6)
+            total_readings = 0
+            total_predictions = 0
+            total_explanations = 0
+            total_trends = 0
+
+            for ctype, fname, df in loaded_dfs:
+                logger.info(f"Processing telemetry & predictions for {ctype} ({len(df)} rows)...")
+
+                # Prepare feature DF for SHAP
+                drop_feat_cols = [
+                    "asset_id", "timestamp", "component_id", "component_type",
+                    "failure_within_50_hours", "failure_probability_percent",
+                    "anomalies_percentage", "anomaly_probability_percent", "anomaly_label",
+                    "sensor_status", "source_file", "parsed_timestamp"
+                ]
+                df_features = df.drop(columns=[c for c in drop_feat_cols if c in df.columns])
+
+                # Calculate SHAP explanations for this batch
+                shap_results = shap_service.explain_batch(ctype, df_features)
+
+                # Process trend evaluation per component history
+                trend_records_map = {}
+                for comp_id, group in df.groupby("component_id"):
+                    trend_res = trend_service.evaluate_component_series(ctype, group)
+                    for idx, row_trend in enumerate(trend_res):
+                        orig_idx = group.index[idx]
+                        trend_records_map[orig_idx] = row_trend
+
+                # Prepare batch objects
+                readings_to_insert = []
+                predictions_to_insert = []
+                trend_to_insert = []
+
+                # Fetch existing prediction keys to ensure idempotency
+                existing_pred_keys = {
+                    (p[0], p[1], p[2])
+                    for p in db.query(Prediction.asset_id, Prediction.component_id, Prediction.timestamp)
+                    .filter(Prediction.component_type == ctype).all()
+                }
+
+                existing_sensor_keys = {
+                    (s[0], s[1], s[2])
+                    for s in db.query(SensorReading.asset_id, SensorReading.component_id, SensorReading.timestamp)
+                    .filter(SensorReading.component_type == ctype).all()
+                }
+
+                for idx, row in df.iterrows():
+                    aid = row["asset_id"]
+                    cid = row["component_id"]
+                    ts = row["parsed_timestamp"]
+
+                    # 3. Sensor Reading
+                    sensor_key = (aid, cid, ts)
+                    if sensor_key not in existing_sensor_keys:
+                        s_record = {
+                            "timestamp": ts,
+                            "asset_id": aid,
+                            "component_id": cid,
+                            "component_type": ctype,
+                            "temperature": float(row["temperature"]) if pd.notnull(row.get("temperature")) else None,
+                            "vibration": float(row["vibration"]) if pd.notnull(row.get("vibration")) else None,
+                            "oil_pressure": float(row["oil_pressure"]) if pd.notnull(row.get("oil_pressure")) else None,
+                            "fuel_pressure": float(row["fuel_pressure"]) if pd.notnull(row.get("fuel_pressure")) else None,
+                            "rpm": float(row["rpm"]) if pd.notnull(row.get("rpm")) else None,
+                            "hydraulic_pressure": float(row["hydraulic_pressure"]) if pd.notnull(row.get("hydraulic_pressure")) else None,
+                            "battery_voltage": float(row["battery_voltage"]) if pd.notnull(row.get("battery_voltage")) else None,
+                            "coolant_temperature": float(row["coolant_temperature"]) if pd.notnull(row.get("coolant_temperature")) else None,
+                            "operating_hours": float(row["operating_hours"]) if pd.notnull(row.get("operating_hours")) else None,
+                            "load_percentage": float(row["load_percentage"]) if pd.notnull(row.get("load_percentage")) else None,
+                            "ambient_temperature": float(row["ambient_temperature"]) if pd.notnull(row.get("ambient_temperature")) else None,
+                            "sensor_status": str(row["sensor_status"]) if pd.notnull(row.get("sensor_status")) else "Normal",
+                            "source_file": fname,
+                        }
+                        readings_to_insert.append(s_record)
+
+                    # 4. Prediction & Scoring
+                    pred_key = (aid, cid, ts)
+                    if pred_key not in existing_pred_keys:
+                        # Extract failure prediction
+                        fail_prob = float(row.get("failure_probability_percent", 0.0))
+                        fail_pred = int(row.get("failure_within_50_hours", 1 if fail_prob > 40.0 else 0))
+
+                        # Extract anomaly prediction
+                        anom_prob = float(row.get("anomalies_percentage", row.get("anomaly_probability_percent", 0.0)))
+                        if "anomaly_label" in row and pd.notnull(row["anomaly_label"]):
+                            anom_pred = int(row["anomaly_label"])
+                        else:
+                            anom_pred = 1 if anom_prob > 40.0 else 0
+
+                        # Trend Risk
+                        t_data = trend_records_map.get(idx, {})
+                        trend_risk_val = t_data.get("trend_risk", 20.0)
+
+                        # Health & Priority
+                        anom_sev = scoring_service.calculate_anomaly_severity(anom_prob)
+                        h_score = scoring_service.calculate_health_score(fail_prob, anom_sev, trend_risk_val)
+                        p_score, p_level = scoring_service.calculate_maintenance_priority(fail_prob, anom_sev, trend_risk_val)
+
+                        # SHAP attribution
+                        shap_info = shap_results[idx] if idx < len(shap_results) else {}
+                        prim_reason = shap_info.get("primary_reason")
+                        sec_reason = shap_info.get("secondary_reason")
+
+                        pred_record = {
+                            "timestamp": ts,
+                            "asset_id": aid,
+                            "component_id": cid,
+                            "component_type": ctype,
+                            "anomaly_prediction": anom_pred,
+                            "anomaly_probability": anom_prob,
+                            "failure_prediction": fail_pred,
+                            "failure_probability": fail_prob,
+                            "primary_reason": prim_reason,
+                            "secondary_reason": sec_reason,
+                            "anomaly_severity": anom_sev,
+                            "trend_risk": trend_risk_val,
+                            "health_score": h_score,
+                            "maintenance_priority": p_score,
+                            "priority_level": p_level,
+                            "model_version": "1.0.0",
+                            "source_file": fname,
+                            "_shap_explanations": shap_info.get("explanations", []),
+                        }
+                        predictions_to_insert.append(pred_record)
+
+                        # Trend record
+                        trend_to_insert.append({
+                            "asset_id": aid,
+                            "component_id": cid,
+                            "timestamp": ts,
+                            "trend_risk": trend_risk_val,
+                            "rate_of_change": t_data.get("rate_of_change"),
+                            "persistence_score": t_data.get("persistence_score"),
+                            "degradation_score": t_data.get("degradation_score"),
+                            "multi_sensor_score": t_data.get("multi_sensor_score"),
+                        })
+
+                # Bulk insert sensor readings
+                if readings_to_insert:
+                    db.bulk_insert_mappings(SensorReading, readings_to_insert)
                     db.commit()
-                result.telemetry_records_inserted += len(batch_objects)
-                batch_objects.clear()
+                    total_readings += len(readings_to_insert)
 
-        if dry_run:
-            db.rollback()
-            logger.info("Dry run completed. Rolled back all changes.")
+                # Bulk insert trend analysis
+                if trend_to_insert:
+                    db.bulk_insert_mappings(TrendAnalysis, trend_to_insert)
+                    db.commit()
+                    total_trends += len(trend_to_insert)
 
-        logger.info(
-            "Ingestion complete: %d processed, %d valid, %d rejected, %d duplicates, %d assets, %d inserted.",
-            result.total_records_processed,
-            result.successful_records,
-            result.rejected_records,
-            result.duplicate_records,
-            result.assets_created,
-            result.telemetry_records_inserted
-        )
-        return result
+                # Insert predictions and link explanations
+                if predictions_to_insert:
+                    logger.info(f"Inserting {len(predictions_to_insert)} predictions and SHAP explanations...")
+                    batch_size = 250
+                    for b_start in range(0, len(predictions_to_insert), batch_size):
+                        batch = predictions_to_insert[b_start : b_start + batch_size]
+                        pred_objs = []
+                        exps_list = []
+                        for item in batch:
+                            shap_exps = item.pop("_shap_explanations", [])
+                            pred_obj = Prediction(**item)
+                            db.add(pred_obj)
+                            pred_objs.append(pred_obj)
+                            exps_list.append(shap_exps)
 
-    def ingest_maintenance_csv(self, db: Session, csv_path: str) -> int:
-        """
-        Ingests real maintenance history from maintenance_data.csv into maintenance_records table.
-        """
-        from app.models.maintenance import MaintenanceRecord
-        path = Path(csv_path)
-        if not path.is_file():
-            logger.error(f"Maintenance CSV file not found: {csv_path}")
-            return 0
+                        db.flush()  # Populates ALL pred_obj.id in a single round-trip!
 
-        # Load existing assets map
-        assets = db.query(Asset).all()
-        asset_map = {a.asset_code: a.id for a in assets}
+                        exp_mappings = []
+                        for pred_obj, shap_exps in zip(pred_objs, exps_list):
+                            for exp in shap_exps:
+                                exp_mappings.append({
+                                    "prediction_id": pred_obj.id,
+                                    "feature_name": exp["feature_name"],
+                                    "shap_value": exp["shap_value"],
+                                    "feature_value": exp.get("feature_value"),
+                                    "contribution_direction": exp.get("contribution_direction"),
+                                    "rank": exp.get("rank")
+                                })
 
-        # Clean existing maintenance records before fresh comprehensive ingestion
-        db.query(MaintenanceRecord).delete()
-        db.commit()
+                        if exp_mappings:
+                          db.bulk_insert_mappings(
+                              PredictionExplanation, exp_mappings
+                          )
+                          total_explanations += len(exp_mappings)
 
-        inserted = 0
-        with open(path, mode="r", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                asset_code = row.get("asset_id", "").strip()
-                if not asset_code or asset_code not in asset_map:
-                    continue
+                        db.commit()
+                    total_predictions += len(predictions_to_insert)
 
-                m_date = self.parse_timestamp(row.get("maintenance_date", ""))
-                if not m_date:
-                    continue
+            stats["sensor_readings_inserted"] = total_readings
+            stats["predictions_inserted"] = total_predictions
+            stats["explanations_inserted"] = total_explanations
+            stats["trend_records_inserted"] = total_trends
 
-                asset_db_id = asset_map[asset_code]
-                c_id = row.get("component_id", "").strip() or None
-                c_type = row.get("component_type", "").strip() or "General"
-                issue = row.get("issue_detected", "").strip() or "Routine inspection"
-                cond = row.get("component_condition", "").strip() or "Good"
-                failure = row.get("failure_type", "").strip() or "None"
-                parts = row.get("parts_replaced", "").strip() or "None"
-                dur_hours = self.parse_float(row.get("maintenance_duration_hours"), 2.0)
-                op_hours = self.parse_float(row.get("operating_hours"))
-                next_due = self.parse_float(row.get("next_maintenance_due_hours"))
-                failed = bool(self.parse_int(row.get("failure_occurred"), 0))
-
-                rec = MaintenanceRecord(
-                    asset_id=asset_db_id,
-                    component_id=c_id,
-                    component_type=c_type,
-                    maintenance_date=m_date,
-                    operating_hours=op_hours,
-                    maintenance_type=row.get("maintenance_type", "Preventive").strip(),
-                    component=c_type,
-                    issue_detected=issue,
-                    failure_type=failure,
-                    component_condition=cond,
-                    parts_replaced=parts,
-                    failure_occurred=failed,
-                    maintenance_duration_hours=dur_hours,
-                    next_maintenance_due_hours=next_due,
-                    description=f"{issue} | Condition: {cond} | Failure: {failure} | Replaced: {parts}",
-                    technician="Avionics & Mechanical Specialist",
-                    cost=round(dur_hours * 150.0, 2),
-                    next_maintenance_date=None,
-                    maintenance_status="COMPLETED"
+            # 5. Ingest Asset Status (Step 7)
+            logger.info("Computing current operational status for all assets...")
+            # For each asset, find the latest prediction of each component
+            status_count = 0
+            all_assets = db.query(Asset.asset_id).all()
+            for (aid,) in all_assets:
+                # Query latest predictions for this asset's components
+                subq = (
+                    db.query(
+                        Prediction.component_id,
+                        Prediction.component_type,
+                        Prediction.anomaly_prediction,
+                        Prediction.priority_level,
+                        Prediction.timestamp
+                    )
+                    .filter(Prediction.asset_id == aid)
+                    .order_by(Prediction.component_id, Prediction.timestamp.desc())
+                    .all()
                 )
-                db.add(rec)
-                inserted += 1
+
+                # Keep only the latest prediction per component
+                latest_by_comp = {}
+                for cid, ctype, anom_pred, p_level, ts in subq:
+                    if cid not in latest_by_comp:
+                        latest_by_comp[cid] = {
+                            "component_id": cid,
+                            "component_type": ctype,
+                            "anomaly_prediction": anom_pred,
+                            "priority_level": p_level,
+                            "timestamp": ts
+                        }
+
+                comp_list = list(latest_by_comp.values())
+                status, crit_c, high_c, anom_c = scoring_service.calculate_asset_status(comp_list)
+
+                # Record asset status
+                db.add(AssetStatus(
+                    asset_id=aid,
+                    status=status,
+                    critical_component_count=crit_c,
+                    high_priority_component_count=high_c,
+                    anomalous_component_count=anom_c,
+                    calculated_at=datetime.now(timezone.utc)
+                ))
+                status_count += 1
 
             db.commit()
+            stats["asset_status_records"] = status_count
+            logger.info(f"Ingestion completed successfully: {stats}")
+            return stats
 
-        logger.info("Maintenance records ingestion complete: %d records inserted.", inserted)
-        return inserted
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Ingestion pipeline failed: {e}", exc_info=True)
+            stats["errors"].append(str(e))
+            raise
+        finally:
+            if should_close:
+                db.close()
 
-ingestion_service = CSVIngestionService()
-
+ingestion_pipeline = TelemetryIngestionPipeline()

@@ -1,18 +1,15 @@
 import React from 'react';
 import {
-  Cpu,
-  Shield,
+  LayoutDashboard,
+  Boxes,
+  Crosshair,
   Activity,
-  Radio,
-  AlertOctagon,
-  Wrench,
-  TrendingUp,
-  BarChart2,
-  FileText,
+  Bot,
+  FileSpreadsheet,
+  Sliders,
   ChevronLeft,
   ChevronRight,
-  LogOut,
-  Calendar
+  LogOut
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -21,35 +18,34 @@ export default function Sidebar({
   isCollapsed,
   onToggleCollapse,
   user,
-  onLogout,
-  unreadAlertCount = 0,
-  urgentMaintenanceCount = 0
+  onLogout
 }) {
   const navigationGroups = [
     {
       title: 'Operational Command',
       items: [
-        { id: 'overview', label: 'Overview', icon: Cpu, badge: 'CORE' },
-        { id: 'fleet', label: 'Fleet Assets', icon: Activity },
-        { id: 'health', label: 'Health & Sensors', icon: Radio },
-        { id: 'predictions', label: 'Predictions & Risk', icon: TrendingUp },
-        {
-          id: 'alerts',
-          label: 'Alerts & Directives',
-          icon: AlertOctagon,
-          badge: unreadAlertCount > 0 ? `${unreadAlertCount}` : null,
-          badgeClass: unreadAlertCount > 0 ? 'badge-critical' : ''
-        },
-        {
-          id: 'maintenance',
-          label: 'Maintenance Queue',
-          icon: Wrench,
-          badge: urgentMaintenanceCount > 0 ? `${urgentMaintenanceCount} DUE` : null,
-          badgeClass: urgentMaintenanceCount > 0 ? 'badge-caution' : ''
-        },
-        { id: 'planning', label: 'Intervention Plan', icon: Calendar },
-        { id: 'analytics', label: 'Fleet Analytics', icon: BarChart2 },
-        { id: 'reports', label: 'Readiness Reports', icon: FileText },
+        { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+      ]
+    },
+    {
+      title: 'Monitoring',
+      items: [
+        { id: 'fleet', label: 'Fleet Assets', icon: Boxes },
+        { id: 'predictions', label: 'Predictions', icon: Crosshair },
+        { id: 'trends', label: 'Trends & Health', icon: Activity },
+      ]
+    },
+    {
+      title: 'Intelligence',
+      items: [
+        { id: 'copilot', label: 'AI Copilot', icon: Bot, badge: 'AI' },
+        { id: 'reports', label: 'Reports', icon: FileSpreadsheet },
+      ]
+    },
+    {
+      title: 'System',
+      items: [
+        { id: 'settings', label: 'Settings', icon: Sliders },
       ]
     }
   ];
@@ -73,28 +69,53 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Nav Groups */}
-      <div className="sidebar-scroll-content">
+      {/* Nav Groups with Minimal Spacing */}
+      <div className="sidebar-scroll-content" style={{ padding: '8px 10px', gap: '8px' }}>
         {navigationGroups.map((group, gIdx) => (
-          <div key={gIdx} className="nav-group">
-            <div className="nav-group-title">{group.title}</div>
+          <div key={gIdx} className="nav-group" style={{ marginBottom: '10px' }}>
+            <div
+              className="nav-group-title"
+              style={{
+                fontSize: '10px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: 'var(--color-text-muted)',
+                padding: '4px 10px 4px',
+                display: isCollapsed ? 'none' : 'block'
+              }}
+            >
+              {group.title}
+            </div>
             <ul className="sidebar-nav-list" role="menu">
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
                 return (
-                  <li key={item.id} role="none">
+                  <li key={item.id} role="none" style={{ marginBottom: '2px' }}>
                     <button
                       role="menuitem"
                       className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
                       onClick={() => onTabChange(item.id)}
                       data-tooltip={item.label}
                       aria-current={isActive ? 'page' : undefined}
+                      style={{ height: '36px', padding: '0 10px' }}
                     >
-                      <Icon size={18} className="sidebar-item-icon" aria-hidden="true" />
-                      <span className="sidebar-item-label">{item.label}</span>
+                      <Icon size={17} className="sidebar-item-icon" aria-hidden="true" />
+                      <span className="sidebar-item-label" style={{ fontSize: '13px' }}>{item.label}</span>
                       {item.badge && (
-                        <span className={`sidebar-item-badge ${item.badgeClass || ''}`}>
+                        <span
+                          className="sidebar-item-badge"
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: 800,
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                            color: 'var(--color-success)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          }}
+                        >
                           {item.badge}
                         </span>
                       )}
@@ -107,41 +128,43 @@ export default function Sidebar({
         ))}
       </div>
 
-      {/* Footer Profile & Collapse Toggle */}
-      <div className="sidebar-footer">
-        {user && (
+      {/* Footer Profile & Parallel Collapse / Red Logout Buttons */}
+      <div className="sidebar-footer" style={{ padding: isCollapsed ? '10px 6px' : '12px 10px', borderTop: '1px solid var(--color-border)' }}>
+        {user && !isCollapsed && (
           <div
             className="user-profile-card"
+            style={{ marginBottom: '10px', padding: '6px 10px' }}
             title={`${user.name || 'Commander'} (${user.role || 'Officer'})`}
           >
-            <div className="user-avatar-initials">
+            <div className="user-avatar-initials" style={{ width: '28px', height: '28px', fontSize: '11px' }}>
               {(user.name || 'SA').slice(0, 2).toUpperCase()}
             </div>
             <div className="user-info-text">
-              <span className="user-name-line">{user.name || 'Commander'}</span>
-              <span className="user-role-badge">{user.role || 'Operational Command'}</span>
+              <span className="user-name-line" style={{ fontSize: '12px', fontWeight: 600 }}>{user.name || 'Commander'}</span>
+              <span className="user-role-badge" style={{ fontSize: '10px' }}>{user.role || 'Operational Command'}</span>
             </div>
           </div>
         )}
 
-        <div className="sidebar-footer-actions">
+        <div className="sidebar-footer-actions-parallel">
           <button
-            className="sidebar-collapse-trigger"
+            className="sidebar-collapse-btn-parallel"
             onClick={onToggleCollapse}
-            title={isCollapsed ? 'Expand Sidebar (Ctrl+[)' : 'Collapse Sidebar (Ctrl+[)'}
+            title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
             aria-label={isCollapsed ? 'Expand navigation sidebar' : 'Collapse navigation sidebar'}
           >
-            {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            {isCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
             {!isCollapsed && <span>Collapse</span>}
           </button>
 
           <button
-            className="sidebar-logout-btn"
+            className="sidebar-logout-btn-parallel"
             onClick={onLogout}
-            title="Secure Logout"
+            title="Secure Logout from Tactical System"
             aria-label="Secure Logout"
           >
-            <LogOut size={15} />
+            <LogOut size={14} />
+            {!isCollapsed && <span>Logout</span>}
           </button>
         </div>
       </div>

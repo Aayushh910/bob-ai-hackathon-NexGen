@@ -8,6 +8,9 @@ from app.repositories.recommendation import recommendation_repository
 from app.schemas.readiness import RiskFactor
 from app.schemas.recommendation import RecommendationResponse
 
+# Reserved for future automated corrective action recommendations and work order generation.
+# Not currently called by primary frontend navigation because the current release
+# surfaces operational insights and TreeSHAP root causes directly via AI Copilot and Component Analysis.
 logger = logging.getLogger("sentinelai.recommendations")
 
 class RecommendationService:

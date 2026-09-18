@@ -73,7 +73,6 @@ desktop.ini
 
 
 # ── Docker volumes / local data ───────────────────────────────────────────────
-data/
 logs/
 *.log
 

@@ -1,18 +1,17 @@
 from app.models.asset import Asset
+from app.models.component import Component
 from app.models.sensor import SensorReading
-from app.models.maintenance import MaintenanceRecord
 from app.models.prediction import Prediction
-from app.models.anomaly import Anomaly
-from app.models.recommendation import Recommendation
-from app.models.readiness import ReadinessAssessment
+from app.models.explanation import PredictionExplanation
+from app.models.trend import TrendAnalysis
+from app.models.status import AssetStatus
 
 __all__ = [
     "Asset",
+    "Component",
     "SensorReading",
-    "MaintenanceRecord",
     "Prediction",
-    "Anomaly",
-    "Recommendation",
-    "ReadinessAssessment"
+    "PredictionExplanation",
+    "TrendAnalysis",
+    "AssetStatus",
 ]
-

@@ -2,14 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import AppShell from './components/layout/AppShell';
 import OverviewView from './components/overview/OverviewView';
 import FleetOverview from './components/fleet/FleetOverview';
-import HealthView from './components/health/HealthView';
+import AssetInspectionView from './components/fleet/AssetInspectionView';
+import ComponentAnalysisView from './components/components/ComponentAnalysisView';
 import PredictionsView from './components/predictions/PredictionsView';
-import AlertsView from './components/alerts/AlertsView';
-import MaintenanceDashboard from './components/maintenance/MaintenanceDashboard';
-import InterventionPlanView from './components/maintenance/InterventionPlanView';
-import AnalyticsView from './components/analytics/AnalyticsView';
+import TrendsHealthView from './components/trends/TrendsHealthView';
+import MLCopilotView from './components/copilot/MLCopilotView';
 import ReportsView from './components/reports/ReportsView';
-import MissionReadinessDashboard from './components/readiness/MissionReadinessDashboard';
+import SettingsView from './components/settings/SettingsView';
 import LandingPage from './components/landing/LandingPage';
 import LoginPage from './components/landing/LoginPage';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -18,14 +17,11 @@ import { getSystemHealth } from './api/health';
 const VALID_TABS = [
   'overview',
   'fleet',
-  'health',
   'predictions',
-  'alerts',
-  'maintenance',
-  'planning',
-  'analytics',
+  'trends',
+  'copilot',
   'reports',
-  'readiness'
+  'settings'
 ];
 
 const getInitialPage = () => {
@@ -67,11 +63,14 @@ export default function App() {
   const [user, setUser] = useState(getInitialUser);
   const [activeTab, setActiveTab] = useState(getInitialTab);
 
-  // Keep-alive cache: track visited tabs so they mount lazily on first access, but stay mounted in memory
+  // Contextual views state
+  const [inspectingAssetId, setInspectingAssetId] = useState(null);
+  const [analyzingComponentId, setAnalyzingComponentId] = useState(null);
+
+  // Keep-alive cache
   const [visitedTabs, setVisitedTabs] = useState(() => new Set(['overview', getInitialTab()]));
   const [healthData, setHealthData] = useState(null);
-  const [isLoadingHealth, setIsLoadingHealth] = useState(true);
-  const [systemError, setSystemError] = useState(null);
+  const [theme, setTheme] = useState(() => localStorage.getItem('sentinel_theme') || 'dark');
 
   // Persist page state to localStorage
   useEffect(() => {
@@ -101,6 +100,8 @@ export default function App() {
       const hash = window.location.hash.replace(/^#/, '');
       if (VALID_TABS.includes(hash)) {
         setActiveTab(hash);
+        setInspectingAssetId(null);
+        setAnalyzingComponentId(null);
         setPage('dashboard');
       }
     };
@@ -118,22 +119,17 @@ export default function App() {
   }, [activeTab]);
 
   const fetchHealth = useCallback(async () => {
-    setIsLoadingHealth(true);
-    setSystemError(null);
     try {
       const data = await getSystemHealth();
       setHealthData(data);
     } catch (err) {
-      console.warn('System health polling warning:', err);
-      setSystemError(err.message || 'Unable to establish connection to SentinelAI Backend API.');
-    } finally {
-      setIsLoadingHealth(false);
+      console.warn('Health check warning:', err);
     }
   }, []);
 
   useEffect(() => {
     fetchHealth();
-    const timer = setInterval(fetchHealth, 60000);
+    const timer = setInterval(fetchHealth, 45000);
     return () => clearInterval(timer);
   }, [fetchHealth]);
 
@@ -156,48 +152,148 @@ export default function App() {
     setPage('landing');
   };
 
+  const toggleTheme = () => {
+    setTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('sentinel_theme', next);
+      return next;
+    });
+  };
+
+  // Contextual view navigation handlers
+  const handleInspectAsset = (assetId) => {
+    setInspectingAssetId(assetId);
+    setAnalyzingComponentId(null);
+    setActiveTab('fleet');
+  };
+
+  const handleAnalyzeComponent = (componentId) => {
+    setAnalyzingComponentId(componentId);
+  };
+
+  const handleBackFromAsset = () => {
+    setInspectingAssetId(null);
+    setAnalyzingComponentId(null);
+  };
+
+  const handleBackFromComponent = () => {
+    setAnalyzingComponentId(null);
+  };
+
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    setInspectingAssetId(null);
+    setAnalyzingComponentId(null);
+  };
+
   if (page === 'landing') return <LandingPage onEnter={() => setPage('login')} />;
   if (page === 'login') return <LoginPage onLogin={handleLogin} onBack={() => setPage('landing')} />;
 
   const isHealthy = healthData?.status === 'healthy';
 
-  const renderTab = (tabId, Component, props = {}) => {
-    if (!visitedTabs.has(tabId)) return null;
-    const isVisible = activeTab === tabId;
-    return (
-      <div
-        key={tabId}
-        style={{
-          display: isVisible ? 'block' : 'none',
-          width: '100%',
-        }}
-        aria-hidden={!isVisible}
-      >
-        <ErrorBoundary title={`${tabId.toUpperCase()} View`}>
-          <Component {...props} />
-        </ErrorBoundary>
-      </div>
-    );
-  };
-
   return (
     <AppShell
       activeTab={activeTab}
-      onTabChange={setActiveTab}
+      onTabChange={handleTabChange}
       user={user}
       onLogout={handleLogout}
       systemHealthy={isHealthy}
+      onInspectAsset={handleInspectAsset}
     >
-      {renderTab('overview', OverviewView)}
-      {renderTab('fleet', FleetOverview)}
-      {renderTab('health', HealthView)}
-      {renderTab('predictions', PredictionsView)}
-      {renderTab('alerts', AlertsView)}
-      {renderTab('maintenance', MaintenanceDashboard)}
-      {renderTab('planning', InterventionPlanView)}
-      {renderTab('analytics', AnalyticsView)}
-      {renderTab('reports', ReportsView)}
-      {renderTab('readiness', MissionReadinessDashboard)}
+      {/* If a component is actively selected, show ComponentAnalysisView */}
+      {analyzingComponentId ? (
+        <ErrorBoundary title="Component Analysis">
+          <ComponentAnalysisView
+            componentId={analyzingComponentId}
+            onBack={handleBackFromComponent}
+            onInspectParentAsset={handleInspectAsset}
+            onNavigateTrends={(assetId) => {
+              setActiveTab('trends');
+              setAnalyzingComponentId(null);
+              setInspectingAssetId(null);
+            }}
+          />
+        </ErrorBoundary>
+      ) : activeTab === 'fleet' && inspectingAssetId ? (
+        /* If an asset is actively selected inside Fleet, show AssetInspectionView */
+        <ErrorBoundary title="Asset Inspection">
+          <AssetInspectionView
+            assetId={inspectingAssetId}
+            onBack={handleBackFromAsset}
+            onSelectComponent={handleAnalyzeComponent}
+          />
+        </ErrorBoundary>
+      ) : (
+        /* Standard 6 Top-Level Views */
+        <>
+          {visitedTabs.has('overview') && (
+            <div style={{ display: activeTab === 'overview' ? 'block' : 'none', width: '100%' }}>
+              <ErrorBoundary title="Overview">
+                <OverviewView
+                  onInspectAsset={handleInspectAsset}
+                  onAnalyzeComponent={handleAnalyzeComponent}
+                  onNavigateCopilot={() => setActiveTab('copilot')}
+                />
+              </ErrorBoundary>
+            </div>
+          )}
+
+          {visitedTabs.has('fleet') && (
+            <div style={{ display: activeTab === 'fleet' ? 'block' : 'none', width: '100%' }}>
+              <ErrorBoundary title="Fleet Assets">
+                <FleetOverview onInspectAsset={handleInspectAsset} />
+              </ErrorBoundary>
+            </div>
+          )}
+
+          {visitedTabs.has('predictions') && (
+            <div style={{ display: activeTab === 'predictions' ? 'block' : 'none', width: '100%' }}>
+              <ErrorBoundary title="Predictions">
+                <PredictionsView
+                  onAnalyzeComponent={handleAnalyzeComponent}
+                  onInspectAsset={handleInspectAsset}
+                />
+              </ErrorBoundary>
+            </div>
+          )}
+
+          {visitedTabs.has('trends') && (
+            <div style={{ display: activeTab === 'trends' ? 'block' : 'none', width: '100%' }}>
+              <ErrorBoundary title="Trends & Health">
+                <TrendsHealthView
+                  onAnalyzeComponent={handleAnalyzeComponent}
+                  onInspectAsset={handleInspectAsset}
+                />
+              </ErrorBoundary>
+            </div>
+          )}
+
+          {visitedTabs.has('copilot') && (
+            <div style={{ display: activeTab === 'copilot' ? 'block' : 'none', width: '100%' }}>
+              <ErrorBoundary title="AI Copilot">
+                <MLCopilotView onInspectAsset={handleInspectAsset} />
+              </ErrorBoundary>
+            </div>
+          )}
+
+          {visitedTabs.has('reports') && (
+            <div style={{ display: activeTab === 'reports' ? 'block' : 'none', width: '100%' }}>
+              <ErrorBoundary title="Reports">
+                <ReportsView />
+              </ErrorBoundary>
+            </div>
+          )}
+
+          {visitedTabs.has('settings') && (
+            <div style={{ display: activeTab === 'settings' ? 'block' : 'none', width: '100%' }}>
+              <ErrorBoundary title="Settings">
+                <SettingsView theme={theme} onToggleTheme={toggleTheme} />
+              </ErrorBoundary>
+            </div>
+          )}
+        </>
+      )}
     </AppShell>
   );
 }

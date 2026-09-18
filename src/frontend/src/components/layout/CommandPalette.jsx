@@ -2,14 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Search,
   Activity,
-  AlertOctagon,
-  Wrench,
+  Cpu,
   TrendingUp,
-  Shield,
-  FileText,
+  Radio,
+  BrainCircuit,
+  SlidersHorizontal,
   X,
   ChevronRight
 } from 'lucide-react';
+import { StatusBadge } from '../common/UIComponents';
 
 export default function CommandPalette({
   isOpen,
@@ -46,36 +47,36 @@ export default function CommandPalette({
 
   const q = query.toLowerCase().trim();
 
-  // Search filtered items
+  // Search filtered assets by real fields: asset_id, asset_name, asset_type
   const matchedAssets = assets
     .filter(
       (a) =>
         !q ||
-        a.asset_code?.toLowerCase().includes(q) ||
-        a.model?.toLowerCase().includes(q) ||
-        a.location?.toLowerCase().includes(q)
+        a.asset_id?.toLowerCase().includes(q) ||
+        a.asset_name?.toLowerCase().includes(q) ||
+        a.asset_type?.toLowerCase().includes(q)
     )
     .slice(0, 5);
 
   const navigationCommands = [
-    { id: 'overview', label: 'Overview — Operational Command & Copilot', icon: Shield },
+    { id: 'overview', label: 'Overview — Operational Command & Readiness', icon: Cpu },
     { id: 'fleet', label: 'Fleet Assets — Active Equipment Registry', icon: Activity },
-    { id: 'predictions', label: 'Predictions — ML Failure Risk & RUL', icon: TrendingUp },
-    { id: 'maintenance', label: 'Maintenance Queue — Interventions & Service', icon: Wrench },
-    { id: 'alerts', label: 'Alerts & Anomalies — Operational Directives', icon: AlertOctagon },
-    { id: 'reports', label: 'Readiness Reports — Export Clearance Certificates', icon: FileText },
+    { id: 'predictions', label: 'Predictions — Failure Prognostics & TreeSHAP', icon: TrendingUp },
+    { id: 'trends', label: 'Trends & Health — Subsystem Telemetry Curves', icon: Radio },
+    { id: 'copilot', label: 'AI Copilot — Operational Inquest Engine', icon: BrainCircuit },
+    { id: 'settings', label: 'Settings — Database Diagnostics & Configuration', icon: SlidersHorizontal },
   ].filter((cmd) => !q || cmd.label.toLowerCase().includes(q));
 
   return (
     <div className="command-palette-backdrop" onClick={() => onClose(false)}>
       <div className="command-palette-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div className="command-palette-input-box">
-          <Search size={18} className="text-muted" />
+          <Search size={18} style={{ color: 'var(--color-text-muted)' }} />
           <input
             ref={inputRef}
             type="text"
             className="command-palette-input"
-            placeholder="Search assets, telemetry, commands, or jump to view..."
+            placeholder="Search assets (e.g. A001, A035), commands, or jump to view..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -90,33 +91,33 @@ export default function CommandPalette({
               <div className="command-group-heading">Fleet Assets</div>
               {matchedAssets.map((asset) => (
                 <div
-                  key={asset.id}
+                  key={asset.asset_id}
                   className="command-result-row"
                   onClick={() => {
-                    onInspectAsset(asset.id, asset.asset_code);
+                    onInspectAsset(asset.asset_id);
                     onClose(false);
                   }}
                 >
                   <div className="command-result-left">
-                    <Activity size={16} className="text-cyan" />
+                    <Activity size={16} style={{ color: 'var(--color-text-secondary)' }} />
                     <div>
-                      <strong style={{ color: 'var(--text-primary)' }}>{asset.asset_code}</strong>
-                      <span style={{ marginLeft: '8px', color: 'var(--text-muted)' }}>
-                        {asset.model} &bull; {asset.location}
+                      <strong style={{ color: 'var(--color-text)', fontFamily: 'var(--font-family-mono)' }}>
+                        {asset.asset_id}
+                      </strong>
+                      <span style={{ marginLeft: '8px', color: 'var(--color-text-muted)', fontSize: '12px' }}>
+                        {asset.asset_name} &bull; {asset.asset_type}
                       </span>
                     </div>
                   </div>
-                  <span className={`status-pill pill-${(asset.status || 'active').toLowerCase()}`}>
-                    {asset.status}
-                  </span>
+                  <StatusBadge status={asset.status} size="sm" />
                 </div>
               ))}
             </div>
           )}
 
           {navigationCommands.length > 0 && (
-            <div style={{ marginTop: '8px' }}>
-              <div className="command-group-heading">Operational Modules</div>
+            <div style={{ marginTop: matchedAssets.length > 0 ? '12px' : 0 }}>
+              <div className="command-group-heading">Navigation Views</div>
               {navigationCommands.map((cmd) => {
                 const Icon = cmd.icon;
                 return (
@@ -129,10 +130,10 @@ export default function CommandPalette({
                     }}
                   >
                     <div className="command-result-left">
-                      <Icon size={16} className="text-muted" />
-                      <span>{cmd.label}</span>
+                      <Icon size={16} style={{ color: 'var(--color-text-secondary)' }} />
+                      <span style={{ fontSize: '13px', color: 'var(--color-text)' }}>{cmd.label}</span>
                     </div>
-                    <ChevronRight size={14} className="text-muted" />
+                    <ChevronRight size={14} style={{ color: 'var(--color-text-muted)' }} />
                   </div>
                 );
               })}
@@ -140,8 +141,8 @@ export default function CommandPalette({
           )}
 
           {matchedAssets.length === 0 && navigationCommands.length === 0 && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-              No assets or operational directives found matching "{query}".
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '13px' }}>
+              No matching assets or operational views found for "{query}".
             </div>
           )}
         </div>
