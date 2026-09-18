@@ -19,7 +19,9 @@ from app.models.trend import TrendAnalysis
 from app.models.status import AssetStatus
 from app.services.shap_service import shap_service
 from app.services.trend_service import trend_service
-from app.services.scoring_service import scoring_service
+# Reserved for the future live telemetry ingestion and new-data ML inference phase.
+# Not currently called during live user runtime requests because the current release
+# operates exclusively on the existing validated HUMS dataset persisted in Neon PostgreSQL.
 
 logger = logging.getLogger("sentinelai.services.ingestion")
 

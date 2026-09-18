@@ -27,6 +27,9 @@ from app.schemas.readiness import (
 )
 from app.schemas.recommendation import RecommendationResponse
 
+# Reserved for future deep mission profile readiness assessments and operational sorties.
+# Not currently called by primary frontend navigation because the current release
+# calculates fleet readiness directly from canonical PostgreSQL AssetStatus records.
 logger = logging.getLogger("sentinelai.readiness")
 
 class MissionReadinessEngine:

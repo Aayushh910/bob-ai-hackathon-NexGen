@@ -25,6 +25,9 @@ from app.schemas.maintenance import (
     MaintenanceRecordResponse
 )
 
+# Reserved for future automated maintenance scheduling and work order generation.
+# Not currently called by primary frontend navigation because the current release
+# focuses on core mission readiness, failure prediction, and TreeSHAP diagnostics.
 logger = logging.getLogger("sentinelai.maintenance")
 
 COMPONENT_SENSOR_MAP = {
