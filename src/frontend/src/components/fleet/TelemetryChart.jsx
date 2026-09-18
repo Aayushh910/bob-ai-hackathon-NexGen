@@ -1,16 +1,17 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Activity, Thermometer, Gauge, Zap, Waves, Disc, AlertTriangle, ShieldCheck } from 'lucide-react';
+import ThemeDropdown from '../common/ThemeDropdown';
 
-const METRIC_CONFIGS = {
-  temperature:         { label: 'Temperature',        unit: '°C',       color: '#f59e0b', icon: Thermometer },
-  vibration:           { label: 'Vibration',           unit: 'g',        color: '#ef4444', icon: Waves },
-  oil_pressure:        { label: 'Oil Pressure',        unit: 'psi',      color: '#10b981', icon: Gauge },
-  fuel_pressure:       { label: 'Fuel Pressure',       unit: 'psi',      color: '#f97316', icon: Zap },
-  hydraulic_pressure:  { label: 'Hydraulic Pressure',  unit: 'psi',      color: '#06b6d4', icon: Activity },
-  rpm:                 { label: 'Engine RPM',           unit: 'RPM',      color: '#8b5cf6', icon: Disc },
+export const METRIC_CONFIGS = {
+  temperature:         { label: 'Temperature',        unit: '°C',       color: '#f59e0b', lightColor: '#d97706', icon: Thermometer },
+  vibration:           { label: 'Vibration',           unit: 'g',        color: '#ef4444', lightColor: '#dc2626', icon: Waves },
+  oil_pressure:        { label: 'Oil Pressure',        unit: 'psi',      color: '#10b981', lightColor: '#059669', icon: Gauge },
+  fuel_pressure:       { label: 'Fuel Pressure',       unit: 'psi',      color: '#f97316', lightColor: '#ea580c', icon: Zap },
+  hydraulic_pressure:  { label: 'Hydraulic Pressure',  unit: 'psi',      color: '#06b6d4', lightColor: '#0284c7', icon: Activity },
+  rpm:                 { label: 'Engine RPM',           unit: 'RPM',      color: '#8b5cf6', lightColor: '#7c3aed', icon: Disc },
 };
 
-const OPERATIONAL_THRESHOLDS = {
+export const OPERATIONAL_THRESHOLDS = {
   temperature:        { ucl: 85.0, nominal: 68.0, label: 'UCL: 85.0°C' },
   vibration:          { ucl: 2.50, nominal: 1.20, label: 'UCL: 2.50 g' },
   oil_pressure:       { ucl: 85.0, lcl: 45.0, nominal: 65.0, label: 'UCL: 85.0 psi' },
@@ -19,16 +20,41 @@ const OPERATIONAL_THRESHOLDS = {
   rpm:                { ucl: 2400, nominal: 2100, label: 'UCL: 2400 RPM' },
 };
 
-export default function TelemetryChart({ readings = [] }) {
-  const [activeMetric, setActiveMetric] = useState('temperature');
+export default function TelemetryChart({
+  readings = [],
+  activeMetric: propActiveMetric,
+  onMetricChange,
+  showControls = false
+}) {
+  const [internalMetric, setInternalMetric] = useState('temperature');
+  const activeMetric = propActiveMetric || internalMetric;
+  const setActiveMetric = onMetricChange || setInternalMetric;
+
   const [hoveredPoint, setHoveredPoint] = useState(null);
 
-  // Sort readings chronologically for charting
+  // Dynamic Theme Detection
+  const [isLightTheme, setIsLightTheme] = useState(() => {
+    if (typeof document !== 'undefined') {
+      return document.documentElement.getAttribute('data-theme') === 'light';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const observer = new MutationObserver(() => {
+      setIsLightTheme(document.documentElement.getAttribute('data-theme') === 'light');
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Sort readings chronologically
   const sortedReadings = useMemo(() => {
     return [...readings].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
   }, [readings]);
 
-  // Identify which metrics have actual non-null sensor telemetry in this series
+  // Identify which metrics have actual data
   const availableMetrics = useMemo(() => {
     const available = new Set();
     sortedReadings.forEach((r) => {
@@ -41,7 +67,6 @@ export default function TelemetryChart({ readings = [] }) {
     return available;
   }, [sortedReadings]);
 
-  // Auto-switch to first available metric if activeMetric is unavailable for this subsystem
   useEffect(() => {
     if (availableMetrics.size > 0 && !availableMetrics.has(activeMetric)) {
       const firstAvail = Array.from(availableMetrics)[0];
@@ -49,22 +74,23 @@ export default function TelemetryChart({ readings = [] }) {
         setActiveMetric(firstAvail);
       }
     }
-  }, [availableMetrics, activeMetric]);
+  }, [availableMetrics, activeMetric, setActiveMetric]);
 
-  const config = METRIC_CONFIGS[activeMetric] || METRIC_CONFIGS.temperature;
+  const rawConfig = METRIC_CONFIGS[activeMetric] || METRIC_CONFIGS.temperature;
+  const strokeColor = isLightTheme ? rawConfig.lightColor : rawConfig.color;
   const threshold = OPERATIONAL_THRESHOLDS[activeMetric];
 
-  // Filter only readings where the active metric is non-null
+  // Filter valid readings
   const validReadings = useMemo(() => {
     return sortedReadings.filter(
       (r) => r[activeMetric] !== null && r[activeMetric] !== undefined && !isNaN(Number(r[activeMetric]))
     );
   }, [sortedReadings, activeMetric]);
 
-  // Compute stats and SVG coordinates strictly from valid readings
-  const { points, minVal, maxVal, avgVal, pathD, areaD, uclY, nominalY, breachedCount } = useMemo(() => {
+  // SVG Coordinates & Boundaries
+  const { points, minVal, maxVal, avgVal, pathD, areaD, uclY, nominalY, breachedCount, xTimeLabels } = useMemo(() => {
     if (validReadings.length === 0) {
-      return { points: [], minVal: null, maxVal: null, avgVal: null, pathD: '', areaD: '', uclY: null, nominalY: null, breachedCount: 0 };
+      return { points: [], minVal: null, maxVal: null, avgVal: null, pathD: '', areaD: '', uclY: null, nominalY: null, breachedCount: 0, xTimeLabels: [] };
     }
 
     const values = validReadings.map((r) => Number(r[activeMetric]));
@@ -72,7 +98,6 @@ export default function TelemetryChart({ readings = [] }) {
     let max = Math.max(...values);
     const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
 
-    // Expand bounds if threshold is outside current range so threshold lines render nicely
     if (threshold?.ucl) {
       max = Math.max(max, threshold.ucl * 1.05);
     }
@@ -80,11 +105,15 @@ export default function TelemetryChart({ readings = [] }) {
       min = Math.min(min, threshold.nominal * 0.95);
     }
 
-    const width = 800;
+    const width = 640;
     const height = 240;
-    const paddingX = 40;
-    const paddingY = 32;
+    const paddingLeft = 46;
+    const paddingRight = 24;
+    const paddingTop = 28;
+    const paddingBottom = 34;
 
+    const plotW = width - paddingLeft - paddingRight;
+    const plotH = height - paddingTop - paddingBottom;
     const range = max - min === 0 ? 1 : max - min;
 
     let breached = 0;
@@ -93,25 +122,36 @@ export default function TelemetryChart({ readings = [] }) {
       const isBreached = threshold?.ucl !== undefined && val > threshold.ucl;
       if (isBreached) breached++;
 
-      const x = paddingX + (index / (validReadings.length - 1 || 1)) * (width - 2 * paddingX);
-      const y = height - paddingY - ((val - min) / range) * (height - 2 * paddingY);
+      const x = paddingLeft + (index / (validReadings.length - 1 || 1)) * plotW;
+      const y = paddingTop + plotH - ((val - min) / range) * plotH;
       return { x, y, val, timestamp: reading.timestamp, isBreached };
     });
 
     const linePath = pts.reduce((acc, pt, i) => `${acc} ${i === 0 ? 'M' : 'L'} ${pt.x},${pt.y}`, '');
     const firstPt = pts[0];
     const lastPt = pts[pts.length - 1];
-    const areaPath = `${linePath} L ${lastPt.x},${height - paddingY} L ${firstPt.x},${height - paddingY} Z`;
+    const baseY = paddingTop + plotH;
+    const areaPath = `${linePath} L ${lastPt.x},${baseY} L ${firstPt.x},${baseY} Z`;
 
-    // Compute threshold Y positions
     let computedUclY = null;
     let computedNominalY = null;
 
     if (threshold?.ucl !== undefined) {
-      computedUclY = height - paddingY - ((threshold.ucl - min) / range) * (height - 2 * paddingY);
+      computedUclY = paddingTop + plotH - ((threshold.ucl - min) / range) * plotH;
     }
     if (threshold?.nominal !== undefined) {
-      computedNominalY = height - paddingY - ((threshold.nominal - min) / range) * (height - 2 * paddingY);
+      computedNominalY = paddingTop + plotH - ((threshold.nominal - min) / range) * plotH;
+    }
+
+    // Time markers for X axis
+    const timeLabels = [];
+    if (pts.length > 0) {
+      timeLabels.push({ x: firstPt.x, label: new Date(firstPt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+      if (pts.length > 2) {
+        const midIdx = Math.floor(pts.length / 2);
+        timeLabels.push({ x: pts[midIdx].x, label: new Date(pts[midIdx].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+      }
+      timeLabels.push({ x: lastPt.x, label: new Date(lastPt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
     }
 
     return {
@@ -123,299 +163,269 @@ export default function TelemetryChart({ readings = [] }) {
       areaD: areaPath,
       uclY: computedUclY,
       nominalY: computedNominalY,
-      breachedCount: breached
+      breachedCount: breached,
+      xTimeLabels: timeLabels
     };
   }, [validReadings, activeMetric, threshold]);
 
+  // Color tokens based on theme
+  const gridColor = isLightTheme ? 'rgba(0, 0, 0, 0.07)' : 'rgba(255, 255, 255, 0.07)';
+  const axisColor = isLightTheme ? 'rgba(0, 0, 0, 0.16)' : 'rgba(255, 255, 255, 0.14)';
+  const textColor = isLightTheme ? '#64748b' : '#a1a1aa';
+  const canvasBg = isLightTheme ? '#f8fafc' : '#08080a';
+  const canvasBorder = isLightTheme ? '#e2e8f0' : '#1f1f23';
+
   if (sortedReadings.length === 0) {
     return (
-      <div className="chart-empty-state" style={{ padding: '32px', textAlign: 'center' }}>
-        <Activity size={32} className="chart-empty-icon" />
-        <p style={{ color: 'var(--color-text-secondary)', marginTop: '8px' }}>
-          No historical telemetry available for this asset.
+      <div style={{ padding: '36px 20px', textAlign: 'center', backgroundColor: canvasBg, borderRadius: '8px', border: `1px solid ${canvasBorder}` }}>
+        <Activity size={28} style={{ color: textColor, margin: '0 auto 8px' }} />
+        <p style={{ color: textColor, fontSize: '13px', margin: 0 }}>
+          No historical sensor readings available for this component.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="telemetry-chart-card">
-      <div className="chart-header">
-        <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+      {/* Optional Top Metric Controls (if standalone) */}
+      {showControls && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h4 className="chart-title">HUMS Sensor Telemetry Trends &amp; Limit Boundaries</h4>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Sensor Channel:</span>
+            <ThemeDropdown
+              value={activeMetric}
+              onChange={(val) => setActiveMetric(val)}
+              placeholder="Select Metric..."
+              minWidth="180px"
+              options={Object.entries(METRIC_CONFIGS).map(([k, cfg]) => ({
+                value: k,
+                label: `${cfg.label} (${cfg.unit}) ${!availableMetrics.has(k) ? '(N/A)' : ''}`
+              }))}
+            />
+          </div>
+
+          <div>
             {breachedCount > 0 ? (
-              <span
-                style={{
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                  color: '#ef4444',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
+              <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: 'var(--color-danger-dim)', color: 'var(--color-danger)', border: '1px solid var(--color-danger-border)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                 <AlertTriangle size={11} />
-                {breachedCount} THRESHOLD BREACHES
+                {breachedCount} LIMIT BREACHES
               </span>
             ) : (
-              <span
-                style={{
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  backgroundColor: 'rgba(34, 197, 94, 0.12)',
-                  color: '#22c55e',
-                  border: '1px solid rgba(34, 197, 94, 0.25)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
+              <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: 'var(--color-success-dim)', color: 'var(--color-success)', border: '1px solid var(--color-success-border)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                 <ShieldCheck size={11} />
                 WITHIN NOMINAL BAND
               </span>
             )}
           </div>
-          <p className="chart-subtitle">Real-time time-series telemetry persisted in PostgreSQL with MIL-STD-810H tolerance bands</p>
         </div>
-
-        <div className="metric-toggle-group">
-          {Object.entries(METRIC_CONFIGS).map(([key, cfg]) => {
-            const Icon = cfg.icon;
-            const isActive = activeMetric === key;
-            const isAvailable = availableMetrics.has(key);
-            return (
-              <button
-                key={key}
-                className={`metric-btn ${isActive ? 'metric-btn-active' : ''}`}
-                style={{
-                  ...(isActive ? { borderColor: cfg.color, color: cfg.color } : {}),
-                  ...(!isAvailable ? { opacity: 0.38, cursor: 'not-allowed' } : {})
-                }}
-                onClick={() => isAvailable && setActiveMetric(key)}
-                title={isAvailable ? `${cfg.label} Telemetry` : `${cfg.label} Unavailable on this subsystem`}
-                disabled={!isAvailable}
-              >
-                <Icon size={14} />
-                <span>{cfg.label}</span>
-                {!isAvailable && <span style={{ fontSize: '10px', opacity: 0.8 }}> (N/A)</span>}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* If current metric has no valid data, show explicit message */}
-      {validReadings.length === 0 ? (
-        <div style={{ padding: '36px 20px', textAlign: 'center', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '6px', margin: '16px 0' }}>
-          <Activity size={24} style={{ color: 'var(--color-text-muted)', marginBottom: '8px' }} />
-          <p style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: '13px' }}>
-            <strong>Unavailable:</strong> {config.label} telemetry is not logged for this subsystem architecture.
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Stats Summary Bar */}
-          <div className="chart-stats-bar">
-            <div className="stat-pill">
-              <span className="stat-label">Observed Min:</span>
-              <span className="stat-value">{minVal !== null ? `${minVal} ${config.unit}` : 'Unavailable'}</span>
-            </div>
-            <div className="stat-pill">
-              <span className="stat-label">Observed Avg:</span>
-              <span className="stat-value">{avgVal !== null ? `${avgVal} ${config.unit}` : 'Unavailable'}</span>
-            </div>
-            <div className="stat-pill">
-              <span className="stat-label">Observed Max:</span>
-              <span className="stat-value" style={{ color: breachedCount > 0 ? '#ef4444' : 'var(--color-text)' }}>
-                {maxVal !== null ? `${maxVal} ${config.unit}` : 'Unavailable'}
-              </span>
-            </div>
-            {threshold?.ucl && (
-              <div className="stat-pill" style={{ backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                <span className="stat-label" style={{ color: '#ef4444' }}>Critical Threshold (UCL):</span>
-                <span className="stat-value" style={{ color: '#ef4444' }}>{threshold.ucl} {config.unit}</span>
-              </div>
-            )}
-            {threshold?.nominal && (
-              <div className="stat-pill" style={{ backgroundColor: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
-                <span className="stat-label" style={{ color: '#22c55e' }}>Nominal Baseline:</span>
-                <span className="stat-value" style={{ color: '#22c55e' }}>{threshold.nominal} {config.unit}</span>
-              </div>
-            )}
-          </div>
-
-          {/* SVG Canvas Line Graph with Operational Threshold Bands */}
-          <div className="svg-chart-container">
-            <svg viewBox="0 0 800 240" className="telemetry-svg" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id={`grad-${activeMetric}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={config.color} stopOpacity="0.35" />
-                  <stop offset="100%" stopColor={config.color} stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-
-              {/* Grid lines */}
-              <line x1="40" y1="32" x2="760" y2="32" stroke="rgba(255,255,255,0.06)" strokeDasharray="4 4" />
-              <line x1="40" y1="104" x2="760" y2="104" stroke="rgba(255,255,255,0.06)" strokeDasharray="4 4" />
-              <line x1="40" y1="176" x2="760" y2="176" stroke="rgba(255,255,255,0.06)" strokeDasharray="4 4" />
-              <line x1="40" y1="208" x2="760" y2="208" stroke="rgba(255,255,255,0.12)" />
-
-              {/* Nominal Baseline Reference Line (Emerald) */}
-              {nominalY !== null && nominalY >= 30 && nominalY <= 210 && (
-                <g>
-                  <line
-                    x1="40"
-                    y1={nominalY}
-                    x2="760"
-                    y2={nominalY}
-                    stroke="#22c55e"
-                    strokeWidth="1.5"
-                    strokeDasharray="6 4"
-                    strokeOpacity="0.75"
-                  />
-                  <text
-                    x="755"
-                    y={nominalY - 5}
-                    fill="#22c55e"
-                    fontSize="10"
-                    fontFamily="monospace"
-                    textAnchor="end"
-                    fontWeight="600"
-                  >
-                    Nominal: {threshold.nominal} {config.unit}
-                  </text>
-                </g>
-              )}
-
-              {/* Upper Critical Limit (UCL) Threshold Line (Crimson) */}
-              {uclY !== null && uclY >= 25 && uclY <= 215 && (
-                <g>
-                  <line
-                    x1="40"
-                    y1={uclY}
-                    x2="760"
-                    y2={uclY}
-                    stroke="#ef4444"
-                    strokeWidth="2"
-                    strokeDasharray="4 4"
-                    strokeOpacity="0.85"
-                  />
-                  <text
-                    x="755"
-                    y={uclY - 5}
-                    fill="#ef4444"
-                    fontSize="10"
-                    fontFamily="monospace"
-                    textAnchor="end"
-                    fontWeight="700"
-                  >
-                    UPPER CRITICAL LIMIT ({threshold.ucl} {config.unit})
-                  </text>
-                </g>
-              )}
-
-              {/* Area fill */}
-              {areaD && (
-                <path d={areaD} fill={`url(#grad-${activeMetric})`} />
-              )}
-
-              {/* Line path */}
-              {pathD && (
-                <path
-                  d={pathD}
-                  fill="none"
-                  stroke={config.color}
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              )}
-
-              {/* Interactive data points */}
-              {points.map((pt, i) => {
-                const isBreached = pt.isBreached;
-                return (
-                  <g key={i}>
-                    {isBreached && (
-                      <circle
-                        cx={pt.x}
-                        cy={pt.y}
-                        r={hoveredPoint === pt ? 9 : 6}
-                        fill="none"
-                        stroke="#ef4444"
-                        strokeWidth="1.5"
-                        strokeOpacity="0.8"
-                      />
-                    )}
-                    <circle
-                      cx={pt.x}
-                      cy={pt.y}
-                      r={hoveredPoint === pt ? 5 : isBreached ? 3.5 : 2.5}
-                      fill={isBreached ? '#ef4444' : hoveredPoint === pt ? '#FFFFFF' : config.color}
-                      stroke={isBreached ? '#b91c1c' : config.color}
-                      strokeWidth="1.5"
-                      className="chart-point"
-                      onMouseEnter={() => setHoveredPoint(pt)}
-                      onMouseLeave={() => setHoveredPoint(null)}
-                    />
-                  </g>
-                );
-              })}
-            </svg>
-
-            {/* Hover Tooltip */}
-            {hoveredPoint && (
-              <div
-                className="chart-tooltip"
-                style={{
-                  left: `${(hoveredPoint.x / 800) * 100}%`,
-                  top: `${(hoveredPoint.y / 240) * 100}%`,
-                }}
-              >
-                <div className="tooltip-val" style={{ color: hoveredPoint.isBreached ? '#ef4444' : '#ffffff' }}>
-                  {hoveredPoint.val} {config.unit} {hoveredPoint.isBreached ? '⚠️ LIMIT BREACHED' : ''}
-                </div>
-                <div className="tooltip-date">
-                  {new Date(hoveredPoint.timestamp).toLocaleString()}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Visual Legend */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', fontSize: '11px', color: 'var(--color-text-secondary)', padding: '4px 0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ width: '14px', height: '3px', backgroundColor: config.color, display: 'inline-block', borderRadius: '1px' }}></span>
-              <span>Observed Waveform ({config.label})</span>
-            </div>
-            {threshold?.ucl && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '14px', height: '2px', borderTop: '2px dashed #ef4444', display: 'inline-block' }}></span>
-                <span style={{ color: '#ef4444' }}>Critical Limit ({threshold.ucl} {config.unit})</span>
-              </div>
-            )}
-            {threshold?.nominal && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '14px', height: '2px', borderTop: '2px dashed #22c55e', display: 'inline-block' }}></span>
-                <span style={{ color: '#22c55e' }}>Nominal Baseline</span>
-              </div>
-            )}
-          </div>
-        </>
       )}
 
-      <div className="chart-footer">
-        <span>Earliest Sample: {sortedReadings.length > 0 ? new Date(sortedReadings[0].timestamp).toLocaleString() : '--'}</span>
-        <span>Latest Sample: {sortedReadings.length > 0 ? new Date(sortedReadings[sortedReadings.length - 1].timestamp).toLocaleString() : '--'}</span>
+      {/* Main Waveform SVG Container (Proportional, Non-Stretchy) */}
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          backgroundColor: canvasBg,
+          borderRadius: '8px',
+          border: `1px solid ${canvasBorder}`,
+          padding: '8px',
+          boxSizing: 'border-box'
+        }}
+      >
+        <svg
+          viewBox="0 0 640 240"
+          preserveAspectRatio="xMidYMid meet"
+          style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}
+        >
+          <defs>
+            <linearGradient id={`grad-telemetry-${activeMetric}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={strokeColor} stopOpacity={isLightTheme ? 0.35 : 0.45} />
+              <stop offset="100%" stopColor={strokeColor} stopOpacity={0.0} />
+            </linearGradient>
+          </defs>
+
+          {/* Grid lines */}
+          <line x1="46" y1="28" x2="616" y2="28" stroke={gridColor} strokeDasharray="3 3" />
+          <line x1="46" y1="88" x2="616" y2="88" stroke={gridColor} strokeDasharray="3 3" />
+          <line x1="46" y1="148" x2="616" y2="148" stroke={gridColor} strokeDasharray="3 3" />
+          <line x1="46" y1="206" x2="616" y2="206" stroke={axisColor} strokeWidth="1.5" />
+
+          {/* Y Axis line */}
+          <line x1="46" y1="20" x2="46" y2="206" stroke={axisColor} strokeWidth="1.5" />
+
+          {/* Nominal Reference Line */}
+          {nominalY !== null && nominalY >= 25 && nominalY <= 200 && (
+            <g>
+              <line
+                x1="46"
+                y1={nominalY}
+                x2="616"
+                y2={nominalY}
+                stroke={isLightTheme ? '#16a34a' : '#22c55e'}
+                strokeWidth="1.5"
+                strokeDasharray="5 4"
+                strokeOpacity="0.8"
+              />
+              <text
+                x="612"
+                y={nominalY - 4}
+                fill={isLightTheme ? '#16a34a' : '#22c55e'}
+                fontSize="9"
+                fontFamily="var(--font-family-mono, monospace)"
+                textAnchor="end"
+                fontWeight="700"
+              >
+                Nominal: {threshold.nominal} {rawConfig.unit}
+              </text>
+            </g>
+          )}
+
+          {/* Upper Critical Limit (UCL) Line */}
+          {uclY !== null && uclY >= 25 && uclY <= 200 && (
+            <g>
+              <line
+                x1="46"
+                y1={uclY}
+                x2="616"
+                y2={uclY}
+                stroke={isLightTheme ? '#dc2626' : '#ef4444'}
+                strokeWidth="1.8"
+                strokeDasharray="4 3"
+                strokeOpacity="0.9"
+              />
+              <text
+                x="612"
+                y={uclY - 4}
+                fill={isLightTheme ? '#dc2626' : '#ef4444'}
+                fontSize="9"
+                fontFamily="var(--font-family-mono, monospace)"
+                textAnchor="end"
+                fontWeight="800"
+              >
+                CRITICAL LIMIT ({threshold.ucl} {rawConfig.unit})
+              </text>
+            </g>
+          )}
+
+          {/* Shaded Area */}
+          {areaD && (
+            <path d={areaD} fill={`url(#grad-telemetry-${activeMetric})`} />
+          )}
+
+          {/* Main Waveform Path */}
+          {pathD && (
+            <path
+              d={pathD}
+              fill="none"
+              stroke={strokeColor}
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+
+          {/* Data Points */}
+          {points.map((pt, i) => {
+            const isBreached = pt.isBreached;
+            const isHovered = hoveredPoint === pt;
+            return (
+              <g key={i}>
+                {isBreached && (
+                  <circle
+                    cx={pt.x}
+                    cy={pt.y}
+                    r={isHovered ? 8 : 5}
+                    fill="none"
+                    stroke="#ef4444"
+                    strokeWidth="1.5"
+                    strokeOpacity="0.75"
+                  />
+                )}
+                <circle
+                  cx={pt.x}
+                  cy={pt.y}
+                  r={isHovered ? 4.5 : isBreached ? 3 : 2}
+                  fill={isBreached ? '#ef4444' : isHovered ? (isLightTheme ? '#0f172a' : '#ffffff') : strokeColor}
+                  stroke={isBreached ? '#991b1b' : strokeColor}
+                  strokeWidth="1.5"
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={() => setHoveredPoint(pt)}
+                  onMouseLeave={() => setHoveredPoint(null)}
+                />
+              </g>
+            );
+          })}
+
+          {/* X Axis Time Labels */}
+          {xTimeLabels.map((lbl, idx) => (
+            <text
+              key={idx}
+              x={lbl.x}
+              y="222"
+              fill={textColor}
+              fontSize="9"
+              fontFamily="var(--font-family-mono, monospace)"
+              textAnchor={idx === 0 ? 'start' : idx === xTimeLabels.length - 1 ? 'end' : 'middle'}
+            >
+              {lbl.label}
+            </text>
+          ))}
+        </svg>
+
+        {/* Floating Tooltip */}
+        {hoveredPoint && (
+          <div
+            style={{
+              position: 'absolute',
+              left: `${(hoveredPoint.x / 640) * 100}%`,
+              top: `${(hoveredPoint.y / 240) * 100}%`,
+              transform: 'translate(-50%, -125%)',
+              backgroundColor: isLightTheme ? '#ffffff' : '#141418',
+              border: `1px solid ${isLightTheme ? '#cbd5e1' : '#2e2e36'}`,
+              borderRadius: '6px',
+              padding: '6px 10px',
+              boxShadow: isLightTheme ? '0 4px 16px rgba(0,0,0,0.1)' : '0 6px 20px rgba(0,0,0,0.6)',
+              pointerEvents: 'none',
+              zIndex: 10,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <div style={{ fontSize: '12px', fontWeight: 700, color: hoveredPoint.isBreached ? '#ef4444' : (isLightTheme ? '#0f172a' : '#ffffff'), fontFamily: 'var(--font-family-mono)' }}>
+              {hoveredPoint.val} {rawConfig.unit} {hoveredPoint.isBreached ? '⚠️ LIMIT BREACH' : ''}
+            </div>
+            <div style={{ fontSize: '10px', color: textColor, marginTop: '2px' }}>
+              {new Date(hoveredPoint.timestamp).toLocaleString()}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Visual Legend */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: textColor, padding: '2px 4px', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{ width: '12px', height: '3px', backgroundColor: strokeColor, display: 'inline-block', borderRadius: '1px' }}></span>
+            <span>{rawConfig.label} Curve</span>
+          </div>
+          {threshold?.ucl && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: '12px', height: '2px', borderTop: '2px dashed #ef4444', display: 'inline-block' }}></span>
+              <span style={{ color: isLightTheme ? '#dc2626' : '#ef4444' }}>UCL ({threshold.ucl} {rawConfig.unit})</span>
+            </div>
+          )}
+          {threshold?.nominal && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: '12px', height: '2px', borderTop: '2px dashed #16a34a', display: 'inline-block' }}></span>
+              <span style={{ color: isLightTheme ? '#16a34a' : '#22c55e' }}>Nominal</span>
+            </div>
+          )}
+        </div>
+
+        <div style={{ fontSize: '10px', fontFamily: 'var(--font-family-mono)' }}>
+          {validReadings.length} data points logged
+        </div>
       </div>
     </div>
   );
 }
-

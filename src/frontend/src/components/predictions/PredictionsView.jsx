@@ -7,6 +7,7 @@ import {
   Search,
   Filter,
   RefreshCw,
+  ChevronLeft,
   ChevronRight,
   Eye,
   Cpu,
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react';
 import { getCriticalComponents, getHighPriorityComponents } from '../../api/dashboard';
 import { getAssets } from '../../api/assets';
-import { PageHeader, KpiCard, RiskBadge, LoadingState, EmptyState } from '../common/UIComponents';
+import { PageHeader, KpiCard, RiskBadge, LoadingState, EmptyState, ThemeDropdown } from '../common/UIComponents';
 
 export default function PredictionsView({ onAnalyzeComponent, onInspectAsset }) {
   const [criticalItems, setCriticalItems] = useState([]);
@@ -26,10 +27,16 @@ export default function PredictionsView({ onAnalyzeComponent, onInspectAsset }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Filters
+  // Filters & Pagination
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, typeFilter, priorityFilter]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -142,6 +149,10 @@ export default function PredictionsView({ onAnalyzeComponent, onInspectAsset }) 
     ? Math.round(allItems.reduce((acc, curr) => acc + (curr.failure_probability || 0), 0) / allItems.length)
     : 0;
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const paginatedItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   return (
     <div className="predictions-view-container">
       {/* 1. Header */}
@@ -158,41 +169,41 @@ export default function PredictionsView({ onAnalyzeComponent, onInspectAsset }) 
         }
       />
 
-      {/* 2. Distinct Prognostic Metrics (Different from Overview KPIs) */}
+      {/* 2. Distinct Prognostic Metrics */}
       <div className="grid-kpi">
-        <div className="kpi-card" style={{ borderLeft: '3px solid #38bdf8' }}>
+        <div className="kpi-card variant-info">
           <div className="kpi-card-header">
-            <span className="kpi-title" style={{ color: '#38bdf8' }}>Forecast Time Horizon</span>
-            <Clock size={16} style={{ color: '#38bdf8' }} />
+            <span className="kpi-title">Forecast Time Horizon</span>
+            <Clock size={16} className="kpi-icon" />
           </div>
-          <div className="kpi-value" style={{ color: '#38bdf8' }}>50.0 <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>Hrs</span></div>
+          <div className="kpi-value">50.0 <span className="kpi-unit">Hrs</span></div>
           <div className="kpi-subtitle">Continuous forward prognostic inference window</div>
         </div>
 
-        <div className="kpi-card" style={{ borderLeft: '3px solid #f97316' }}>
+        <div className="kpi-card variant-caution">
           <div className="kpi-card-header">
-            <span className="kpi-title" style={{ color: '#f97316' }}>Active Prognostic Watchlist</span>
-            <Layers size={16} style={{ color: '#f97316' }} />
+            <span className="kpi-title">Active Prognostic Watchlist</span>
+            <Layers size={16} className="kpi-icon" />
           </div>
-          <div className="kpi-value" style={{ color: '#f97316' }}>{allItems.length} <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>Assemblies</span></div>
+          <div className="kpi-value">{allItems.length} <span className="kpi-unit">Assemblies</span></div>
           <div className="kpi-subtitle">Subsystems exhibiting non-zero degradation vector</div>
         </div>
 
-        <div className="kpi-card" style={{ borderLeft: '3px solid #ef4444' }}>
+        <div className="kpi-card variant-critical">
           <div className="kpi-card-header">
-            <span className="kpi-title" style={{ color: '#ef4444' }}>Mean Predicted Risk Rate</span>
-            <Gauge size={16} style={{ color: '#ef4444' }} />
+            <span className="kpi-title">Mean Predicted Risk Rate</span>
+            <Gauge size={16} className="kpi-icon" />
           </div>
-          <div className="kpi-value" style={{ color: '#ef4444' }}>{avgFailureProb}%</div>
+          <div className="kpi-value">{avgFailureProb}%</div>
           <div className="kpi-subtitle">Average failure probability across monitored assemblies</div>
         </div>
 
-        <div className="kpi-card" style={{ borderLeft: '3px solid #22c55e' }}>
+        <div className="kpi-card variant-ready">
           <div className="kpi-card-header">
-            <span className="kpi-title" style={{ color: '#22c55e' }}>Model Ensemble Reliability</span>
-            <Zap size={16} style={{ color: '#22c55e' }} />
+            <span className="kpi-title">Model Ensemble Reliability</span>
+            <Zap size={16} className="kpi-icon" />
           </div>
-          <div className="kpi-value" style={{ color: '#22c55e' }}>94.8%</div>
+          <div className="kpi-value">94.8%</div>
           <div className="kpi-subtitle">Calibrated TreeSHAP cross-validated confidence</div>
         </div>
       </div>
@@ -213,43 +224,34 @@ export default function PredictionsView({ onAnalyzeComponent, onInspectAsset }) 
             />
           </div>
 
-          {/* Component Type Filters */}
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            {['', 'Engine', 'Battery', 'Fuel Pump', 'Hydraulic System'].map((type) => (
-              <button
-                key={type}
-                className={`tab-btn ${typeFilter === type ? 'active' : ''}`}
-                style={{ padding: '6px 12px', fontSize: '12px' }}
-                onClick={() => setTypeFilter(type)}
-              >
-                {type || 'All Subsystems'}
-              </button>
-            ))}
-          </div>
+          {/* Theme-Based Dropdown Filters */}
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <ThemeDropdown
+              value={typeFilter}
+              onChange={(val) => setTypeFilter(val)}
+              placeholder="All Subsystems"
+              minWidth="170px"
+              options={[
+                { value: '', label: 'All Subsystems' },
+                { value: 'Engine', label: 'Engine Assembly' },
+                { value: 'Hydraulic System', label: 'Hydraulic System' },
+                { value: 'Fuel Pump', label: 'Fuel Pump' },
+                { value: 'Battery', label: 'Battery / Electrical' }
+              ]}
+            />
 
-          {/* Priority Filters */}
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button
-              className={`tab-btn ${priorityFilter === '' ? 'active' : ''}`}
-              style={{ padding: '6px 10px', fontSize: '12px' }}
-              onClick={() => setPriorityFilter('')}
-            >
-              All Priorities
-            </button>
-            <button
-              className={`tab-btn ${priorityFilter === 'CRITICAL' ? 'active' : ''}`}
-              style={{ padding: '6px 10px', fontSize: '12px' }}
-              onClick={() => setPriorityFilter('CRITICAL')}
-            >
-              CRITICAL
-            </button>
-            <button
-              className={`tab-btn ${priorityFilter === 'HIGH' ? 'active' : ''}`}
-              style={{ padding: '6px 10px', fontSize: '12px' }}
-              onClick={() => setPriorityFilter('HIGH')}
-            >
-              HIGH
-            </button>
+            <ThemeDropdown
+              value={priorityFilter}
+              onChange={(val) => setPriorityFilter(val)}
+              placeholder="All Priorities"
+              minWidth="150px"
+              options={[
+                { value: '', label: 'All Priorities' },
+                { value: 'CRITICAL', label: 'CRITICAL' },
+                { value: 'HIGH', label: 'HIGH Priority' },
+                { value: 'LOW', label: 'LOW / Nominal' }
+              ]}
+            />
           </div>
         </div>
       </div>
@@ -282,97 +284,143 @@ export default function PredictionsView({ onAnalyzeComponent, onInspectAsset }) 
           onAction={() => { setSearchTerm(''); setTypeFilter(''); setPriorityFilter(''); }}
         />
       ) : (
-        <div className="sentinel-card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="table-wrapper">
-            <table className="sentinel-table">
-              <thead>
-                <tr>
-                  <th>Component ID</th>
-                  <th>Subsystem Type</th>
-                  <th>Parent Asset</th>
-                  <th>Failure Risk</th>
-                  <th>Anomaly Prob</th>
-                  <th>Health Score</th>
-                  <th>Priority Level</th>
-                  <th>Predictive Root Cause &amp; Key Driver</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((item) => {
-                  const isCrit = item.priority_level === 'CRITICAL';
+        <>
+          <div className="sentinel-card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="table-wrapper">
+              <table className="sentinel-table" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Component</th>
+                    <th>Asset</th>
+                    <th>Failure Risk</th>
+                    <th>Health</th>
+                    <th>Priority</th>
+                    <th style={{ maxWidth: '240px' }}>Predictive Root Cause</th>
+                    <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedItems.map((item) => {
+                    const isCrit = item.priority_level === 'CRITICAL';
 
-                  return (
-                    <tr
-                      key={item.component_id}
-                      onClick={() => onAnalyzeComponent && onAnalyzeComponent(item.component_id)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <td>
-                        <strong style={{ fontFamily: 'var(--font-family-mono)', color: 'var(--color-text)', fontSize: '14px' }}>
-                          {item.component_id}
-                        </strong>
-                      </td>
-                      <td>{item.component_type}</td>
-                      <td>
-                        <button
-                          className="btn-link"
-                          style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 600 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onInspectAsset && onInspectAsset(item.asset_id);
-                          }}
-                        >
-                          {item.asset_id}
-                        </button>
-                      </td>
-                      <td>
-                        <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 800, color: isCrit ? 'var(--color-danger)' : '#f97316' }}>
-                          {item.failure_probability}%
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ fontFamily: 'var(--font-family-mono)' }}>
-                          {item.anomaly_probability}%
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 700, color: item.health_score < 50 ? 'var(--color-danger)' : 'var(--color-warning)' }}>
-                          {item.health_score} / 100
-                        </span>
-                      </td>
-                      <td>
-                        <RiskBadge risk={item.priority_level} size="sm" />
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Sparkles size={13} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
-                          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text)' }}>
-                            {item.primary_reason}
+                    return (
+                      <tr
+                        key={item.component_id}
+                        onClick={() => onAnalyzeComponent && onAnalyzeComponent(item.component_id)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <strong style={{ fontFamily: 'var(--font-family-mono)', color: 'var(--color-text)', fontSize: '13px' }}>
+                              {item.component_id}
+                            </strong>
+                            <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                              {item.component_type}
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <button
+                            className="btn-link"
+                            style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 600, fontSize: '13px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onInspectAsset && onInspectAsset(item.asset_id);
+                            }}
+                          >
+                            {item.asset_id}
+                          </button>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 800, color: isCrit ? 'var(--color-danger)' : 'var(--color-warning)', fontSize: '13px' }}>
+                              {item.failure_probability}%
+                            </span>
+                            <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontFamily: 'var(--font-family-mono)' }}>
+                              Anom: {item.anomaly_probability}%
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 700, color: item.health_score < 50 ? 'var(--color-danger)' : 'var(--color-warning)', fontSize: '13px' }}>
+                            {item.health_score} / 100
                           </span>
-                        </div>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button
-                          className="secondary-btn"
-                          style={{ height: '28px', padding: '0 10px', fontSize: '11px' }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAnalyzeComponent && onAnalyzeComponent(item.component_id);
-                          }}
-                        >
-                          <Eye size={12} />
-                          <span>Analyze</span>
-                          <ChevronRight size={12} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td>
+                          <RiskBadge risk={item.priority_level} size="sm" />
+                        </td>
+                        <td style={{ maxWidth: '240px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                            <Sparkles size={13} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
+                            <span
+                              title={item.primary_reason}
+                              style={{
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                color: 'var(--color-text)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {item.primary_reason}
+                            </span>
+                          </div>
+                        </td>
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <button
+                            className="secondary-btn"
+                            style={{ height: '28px', padding: '0 10px', fontSize: '11px', whiteSpace: 'nowrap' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAnalyzeComponent && onAnalyzeComponent(item.component_id);
+                            }}
+                          >
+                            <Eye size={12} />
+                            <span>Analyze</span>
+                            <ChevronRight size={12} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', padding: '8px 4px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                Showing {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, filtered.length)} of {filtered.length} components
+              </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  className="secondary-btn"
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                  style={{ height: '30px', padding: '0 10px', fontSize: '12px' }}
+                >
+                  <ChevronLeft size={14} />
+                  <span>Prev</span>
+                </button>
+                <span style={{ display: 'flex', alignItems: 'center', padding: '0 8px', fontSize: '12px', fontFamily: 'var(--font-family-mono)', color: 'var(--color-text)' }}>
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  className="secondary-btn"
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  style={{ height: '30px', padding: '0 10px', fontSize: '12px' }}
+                >
+                  <span>Next</span>
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

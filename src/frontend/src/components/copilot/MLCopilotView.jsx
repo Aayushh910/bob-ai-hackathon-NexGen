@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Bot,
   Send,
-  Sparkles,
   User,
   AlertTriangle,
   ShieldCheck,
@@ -32,7 +31,7 @@ const INITIAL_PROMPT_SUGGESTIONS = [
   },
   {
     title: 'Subsystem Diagnostics',
-    query: 'Why is asset A035 not ready?',
+    query: 'Which subsystems show abnormal telemetry?',
     desc: 'Retrieve deep causal attribution for specific platform degradation.'
   }
 ];
@@ -43,6 +42,16 @@ export default function MLCopilotView({ onInspectAsset }) {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Ensure body and html overflow remain normal and are never globally locked
+  useEffect(() => {
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -56,9 +65,8 @@ export default function MLCopilotView({ onInspectAsset }) {
     const query = (textToSend || inputQuery).trim();
     if (!query || isLoading) return;
 
-    // Add user message
     const userMessage = {
-      id: Date.now(),
+      id: Date.now().toString(),
       sender: 'user',
       text: query,
       timestamp: new Date()
@@ -70,23 +78,23 @@ export default function MLCopilotView({ onInspectAsset }) {
 
     try {
       const response = await askCopilotQuery(query);
-
-      const aiMessage = {
-        id: Date.now() + 1,
+      const botMessage = {
+        id: (Date.now() + 1).toString(),
         sender: 'copilot',
-        text: response?.answer || 'Inference complete. Operational parameters evaluated.',
+        text: response.reply,
+        structured: response.structured_data,
+        suggestedActions: response.suggested_actions,
         intent: response?.intent,
         confidence: response?.confidence,
         evidence: response?.evidence || [],
         related_assets: response?.related_assets || [],
         timestamp: new Date()
       };
-
-      setMessages((prev) => [...prev, aiMessage]);
-    } catch (err) {
-      console.error('AI Copilot error:', err);
+      setMessages((prev) => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Copilot request failed:', error);
       const errorMessage = {
-        id: Date.now() + 1,
+        id: (Date.now() + 1).toString(),
         sender: 'copilot',
         isError: true,
         text: 'Unable to evaluate query against live telemetry. Please verify backend connection and try again.',
@@ -111,9 +119,9 @@ export default function MLCopilotView({ onInspectAsset }) {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: 'calc(100vh - 120px)',
-        minHeight: '600px',
-        backgroundColor: '#060606',
+        height: 'calc(100vh - var(--header-height, 60px) - 48px)',
+        maxHeight: 'calc(100vh - var(--header-height, 60px) - 48px)',
+        backgroundColor: 'var(--color-surface)',
         borderRadius: '10px',
         border: '1px solid var(--color-border)',
         overflow: 'hidden',
@@ -126,8 +134,8 @@ export default function MLCopilotView({ onInspectAsset }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '14px 20px',
-          backgroundColor: '#0b0b0b',
+          padding: '12px 20px',
+          backgroundColor: 'var(--color-bg-subtle)',
           borderBottom: '1px solid var(--color-border)',
           flexShrink: 0
         }}
@@ -135,8 +143,8 @@ export default function MLCopilotView({ onInspectAsset }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
             style={{
-              width: '36px',
-              height: '36px',
+              width: '32px',
+              height: '32px',
               borderRadius: '8px',
               backgroundColor: 'rgba(56, 189, 248, 0.12)',
               border: '1px solid rgba(56, 189, 248, 0.3)',
@@ -146,16 +154,16 @@ export default function MLCopilotView({ onInspectAsset }) {
               color: '#38bdf8'
             }}
           >
-            <Bot size={20} />
+            <Bot size={18} />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--color-text)' }}>
+              <h2 style={{ fontSize: '14px', fontWeight: 700, margin: 0, color: 'var(--color-text)' }}>
                 SentinelAI Copilot
               </h2>
               <span
                 style={{
-                  fontSize: '10px',
+                  fontSize: '9px',
                   fontWeight: 700,
                   padding: '1px 6px',
                   borderRadius: '4px',
@@ -167,7 +175,7 @@ export default function MLCopilotView({ onInspectAsset }) {
                 LIVE ML INFERENCE
               </span>
             </div>
-            <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', margin: '2px 0 0' }}>
+            <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', margin: '1px 0 0' }}>
               Tactical assistant synthesizing multi-sensor telemetry, failure predictions &amp; TreeSHAP attributions
             </p>
           </div>
@@ -176,7 +184,7 @@ export default function MLCopilotView({ onInspectAsset }) {
         {messages.length > 0 && (
           <button
             className="secondary-btn"
-            style={{ height: '30px', padding: '0 10px', fontSize: '11px' }}
+            style={{ height: '28px', padding: '0 10px', fontSize: '11px' }}
             onClick={() => setMessages([])}
           >
             <RefreshCw size={12} />
@@ -190,56 +198,39 @@ export default function MLCopilotView({ onInspectAsset }) {
         style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '24px 20px',
+          padding: '20px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '20px'
+          gap: '16px'
         }}
       >
-        {/* If no messages yet: Centered Suggestions Hero (Removed permanently once user queries) */}
+        {/* Centered Suggestions Hero without Star Icon and with Smaller Compact Data */}
         {messages.length === 0 ? (
           <div
             style={{
               margin: 'auto',
-              maxWidth: '680px',
+              maxWidth: '540px',
               width: '100%',
               textAlign: 'center',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              padding: '20px 0'
+              padding: '10px 0'
             }}
           >
-            <div
-              style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '16px',
-                backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                border: '1px solid rgba(56, 189, 248, 0.25)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#38bdf8',
-                marginBottom: '16px'
-              }}
-            >
-              <Sparkles size={32} />
-            </div>
-
-            <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--color-text)', margin: '0 0 8px' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--color-text)', margin: '0 0 4px' }}>
               How can SentinelAI assist operational command today?
             </h3>
-            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', margin: '0 0 28px', maxWidth: '520px', lineHeight: '1.5' }}>
+            <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', margin: '0 0 16px', maxWidth: '440px', lineHeight: '1.4' }}>
               Query real-time fleet health, failure predictions, degraded platforms, or mechanical root causes in natural language.
             </p>
 
-            {/* 2x2 Centered Suggestion Grid */}
+            {/* 2x2 Centered Suggestion Grid (Compact) */}
             <div
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: '12px',
+                gap: '8px',
                 width: '100%'
               }}
             >
@@ -248,8 +239,8 @@ export default function MLCopilotView({ onInspectAsset }) {
                   key={index}
                   onClick={() => handleSendMessage(item.query)}
                   style={{
-                    padding: '16px',
-                    backgroundColor: '#0e0e0e',
+                    padding: '10px 14px',
+                    backgroundColor: 'var(--color-bg-subtle)',
                     border: '1px solid var(--color-border)',
                     borderRadius: '8px',
                     textAlign: 'left',
@@ -257,21 +248,21 @@ export default function MLCopilotView({ onInspectAsset }) {
                     transition: 'all 0.15s ease'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.4)';
-                    e.currentTarget.style.backgroundColor = '#141414';
+                    e.currentTarget.style.borderColor = 'var(--color-primary)';
+                    e.currentTarget.style.backgroundColor = 'var(--color-surface-hover)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.borderColor = 'var(--color-border)';
-                    e.currentTarget.style.backgroundColor = '#0e0e0e';
+                    e.currentTarget.style.backgroundColor = 'var(--color-bg-subtle)';
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-text)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text)' }}>
                       {item.title}
                     </span>
-                    <ChevronRight size={14} style={{ color: 'var(--color-text-muted)' }} />
+                    <ChevronRight size={12} style={{ color: 'var(--color-text-muted)' }} />
                   </div>
-                  <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', margin: 0, lineHeight: '1.4' }}>
+                  <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', margin: 0, lineHeight: '1.3' }}>
                     {item.desc}
                   </p>
                 </div>

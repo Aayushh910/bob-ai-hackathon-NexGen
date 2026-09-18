@@ -149,39 +149,17 @@ export function KpiCard({
   loading = false,
   className = ''
 }) {
-  let valColorClass = 'text-primary';
-  let titleColorStyle = {};
-  let valueColorStyle = {};
-
-  if (variant === 'ready' || variant === 'success') {
-    valColorClass = 'text-emerald';
-    titleColorStyle = { color: '#86efac' };
-    valueColorStyle = { color: '#22c55e', textShadow: '0 0 16px rgba(34, 197, 94, 0.25)' };
-  } else if (variant === 'caution' || variant === 'warning') {
-    valColorClass = 'text-amber';
-    titleColorStyle = { color: '#fde047' };
-    valueColorStyle = { color: '#eab308', textShadow: '0 0 16px rgba(234, 179, 8, 0.25)' };
-  } else if (variant === 'critical' || variant === 'danger') {
-    valColorClass = 'text-rose';
-    titleColorStyle = { color: '#fca5a5' };
-    valueColorStyle = { color: '#ef4444', textShadow: '0 0 16px rgba(239, 68, 68, 0.25)' };
-  } else if (variant === 'cyan' || variant === 'accent') {
-    valColorClass = 'text-cyan';
-    titleColorStyle = { color: '#7dd3fc' };
-    valueColorStyle = { color: '#38bdf8', textShadow: '0 0 16px rgba(56, 189, 248, 0.25)' };
-  }
-
-  const glowClass = variant !== 'default' ? 'card-glow-' + variant : '';
-  const cardClass = 'kpi-card ' + glowClass + ' ' + className;
+  const variantClass = variant && variant !== 'default' ? `kpi-variant-${variant}` : '';
+  const cardClass = `kpi-card ${variantClass} ${className}`.trim();
 
   return (
-    <div className={cardClass.trim()}>
+    <div className={cardClass}>
       <div className="kpi-header">
-        <span className="kpi-title" style={titleColorStyle}>{title}</span>
-        {Icon && <Icon size={18} className={'kpi-icon ' + valColorClass} aria-hidden="true" />}
+        <span className="kpi-title">{title}</span>
+        {Icon && <Icon size={18} className="kpi-icon" aria-hidden="true" />}
       </div>
 
-      <div className={'kpi-value ' + valColorClass} style={{ minHeight: '38px', display: 'flex', alignItems: 'center', ...valueColorStyle }}>
+      <div className="kpi-value" style={{ minHeight: '38px', display: 'flex', alignItems: 'center' }}>
         {loading ? (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
             <LoadingSpinner size="sm" />
@@ -300,3 +278,6 @@ export function EmptyState({
     </div>
   );
 }
+
+export { default as ThemeDropdown } from './ThemeDropdown';
+

@@ -152,7 +152,7 @@ export default function AppShell({
         />
 
         {/* Active View Container */}
-        <main className="sentinel-main-content">
+        <main className={`sentinel-main-content ${activeTab === 'copilot' ? 'copilot-active' : ''}`}>
           {children}
         </main>
       </div>

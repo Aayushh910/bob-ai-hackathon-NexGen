@@ -287,7 +287,7 @@ export default function ComponentAnalysisView({
             <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', display: 'block' }}>
               Failure Risk Probability
             </span>
-            <div style={{ fontSize: '24px', fontWeight: 800, fontFamily: 'var(--font-family-mono)', color: failure_probability >= 70 ? 'var(--color-danger)' : failure_probability >= 30 ? '#f97316' : 'var(--color-text)', margin: '4px 0 2px' }}>
+            <div style={{ fontSize: '24px', fontWeight: 800, fontFamily: 'var(--font-family-mono)', color: failure_probability >= 70 ? 'var(--color-danger)' : failure_probability >= 30 ? 'var(--color-warning)' : 'var(--color-text)', margin: '4px 0 2px' }}>
               {failure_probability}%
             </div>
             <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
@@ -313,7 +313,7 @@ export default function ComponentAnalysisView({
             <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', display: 'block' }}>
               Maintenance Priority
             </span>
-            <div style={{ fontSize: '24px', fontWeight: 800, fontFamily: 'var(--font-family-mono)', color: priority_level === 'CRITICAL' ? 'var(--color-danger)' : priority_level === 'HIGH' ? '#f97316' : 'var(--color-text)', margin: '4px 0 2px' }}>
+            <div style={{ fontSize: '24px', fontWeight: 800, fontFamily: 'var(--font-family-mono)', color: priority_level === 'CRITICAL' ? 'var(--color-danger)' : priority_level === 'HIGH' ? 'var(--color-warning)' : 'var(--color-text)', margin: '4px 0 2px' }}>
               {maintenance_priority}
             </div>
             <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
@@ -466,7 +466,7 @@ export default function ComponentAnalysisView({
                 </span>
               </div>
 
-              <div style={{ padding: '14px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '6px', borderLeft: '4px solid #f97316' }}>
+              <div style={{ padding: '14px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '6px', borderLeft: '4px solid var(--color-warning)' }}>
                 <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Secondary Driving Factor
                 </span>

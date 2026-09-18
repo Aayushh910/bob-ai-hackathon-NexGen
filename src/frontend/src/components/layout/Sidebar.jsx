@@ -129,7 +129,7 @@ export default function Sidebar({
       </div>
 
       {/* Footer Profile & Parallel Collapse / Red Logout Buttons */}
-      <div className="sidebar-footer" style={{ padding: '12px 10px', borderTop: '1px solid var(--color-border)' }}>
+      <div className="sidebar-footer" style={{ padding: isCollapsed ? '10px 6px' : '12px 10px', borderTop: '1px solid var(--color-border)' }}>
         {user && !isCollapsed && (
           <div
             className="user-profile-card"

@@ -103,39 +103,39 @@ export default function SettingsView({ theme, onToggleTheme }) {
 
       {/* 2. Sensor Architecture Summary KPIs */}
       <div className="grid-kpi" style={{ marginBottom: '20px' }}>
-        <div className="kpi-card" style={{ borderLeft: '3px solid #22c55e' }}>
+        <div className="kpi-card variant-ready">
           <div className="kpi-card-header">
-            <span className="kpi-title" style={{ color: '#22c55e' }}>Connected Transducers</span>
-            <Radio size={16} style={{ color: '#22c55e' }} />
+            <span className="kpi-title">Connected Transducers</span>
+            <Radio size={16} className="kpi-icon" />
           </div>
-          <div className="kpi-value" style={{ color: '#22c55e' }}>2,200 <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>Channels</span></div>
+          <div className="kpi-value">2,200 <span className="kpi-unit">Channels</span></div>
           <div className="kpi-subtitle">100% telemetry coverage across all fleet assets</div>
         </div>
 
-        <div className="kpi-card" style={{ borderLeft: '3px solid #38bdf8' }}>
+        <div className="kpi-card variant-info">
           <div className="kpi-card-header">
-            <span className="kpi-title" style={{ color: '#38bdf8' }}>Transducers Online</span>
-            <Activity size={16} style={{ color: '#38bdf8' }} />
+            <span className="kpi-title">Transducers Online</span>
+            <Activity size={16} className="kpi-icon" />
           </div>
-          <div className="kpi-value" style={{ color: '#38bdf8' }}>2,186 <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>Nominal</span></div>
+          <div className="kpi-value">2,186 <span className="kpi-unit">Nominal</span></div>
           <div className="kpi-subtitle">Zero offline channels; 14 active threshold alerts</div>
         </div>
 
-        <div className="kpi-card" style={{ borderLeft: '3px solid #f97316' }}>
+        <div className="kpi-card variant-caution">
           <div className="kpi-card-header">
-            <span className="kpi-title" style={{ color: '#f97316' }}>Peak Sampling Frequency</span>
-            <Waves size={16} style={{ color: '#f97316' }} />
+            <span className="kpi-title">Peak Sampling Frequency</span>
+            <Waves size={16} className="kpi-icon" />
           </div>
-          <div className="kpi-value" style={{ color: '#f97316' }}>1,000 <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>Hz</span></div>
+          <div className="kpi-value">1,000 <span className="kpi-unit">Hz</span></div>
           <div className="kpi-subtitle">High-frequency vibration accelerometer streams</div>
         </div>
 
-        <div className="kpi-card" style={{ borderLeft: '3px solid #a855f7' }}>
+        <div className="kpi-card variant-info">
           <div className="kpi-card-header">
-            <span className="kpi-title" style={{ color: '#a855f7' }}>Telemetry Packet Health</span>
-            <ShieldCheck size={16} style={{ color: '#a855f7' }} />
+            <span className="kpi-title">Telemetry Packet Health</span>
+            <ShieldCheck size={16} className="kpi-icon" />
           </div>
-          <div className="kpi-value" style={{ color: '#a855f7' }}>99.94%</div>
+          <div className="kpi-value">99.94%</div>
           <div className="kpi-subtitle">Continuous CRC checksums verified in PostgreSQL</div>
         </div>
       </div>

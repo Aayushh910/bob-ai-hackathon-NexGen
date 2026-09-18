@@ -204,7 +204,7 @@ export default function TopHeader({
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Cpu size={14} style={{ color: '#38bdf8' }} />
+                            <Cpu size={14} style={{ color: 'var(--color-text-secondary)' }} />
                             <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text)' }}>
                               {subsystem}
                             </span>

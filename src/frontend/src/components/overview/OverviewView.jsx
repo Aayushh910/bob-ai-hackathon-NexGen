@@ -32,6 +32,7 @@ export default function OverviewView({ onInspectAsset, onAnalyzeComponent, onNav
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [quickQuery, setQuickQuery] = useState('');
 
   const loadData = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) {
@@ -181,7 +182,7 @@ export default function OverviewView({ onInspectAsset, onAnalyzeComponent, onNav
         }
       />
 
-      {/* 2. Top-Level Fleet KPIs with Distinct Contrast Colors */}
+      {/* 2. Top-Level Fleet KPIs (Unified Tactical Design System) */}
       <div className="grid-kpi">
         <KpiCard
           title="Fleet Readiness Rate"
@@ -212,66 +213,113 @@ export default function OverviewView({ onInspectAsset, onAnalyzeComponent, onNav
           value={riskSum.anomalous_components}
           subtitle="HUMS telemetry deviations"
           icon={Radio}
-          variant="cyan"
+          variant="info"
           loading={loading}
         />
       </div>
 
       {/* 3. Main Grid: AI Copilot Suggestions Launcher + Anomaly Breakdown */}
       <div className="grid-8-4">
-        {/* Left: AI Copilot Suggestions & Quick Navigation (No Inline Chatbot) */}
-        <div className="sentinel-card">
-          <div className="card-header-row">
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Sparkles size={18} style={{ color: 'var(--color-primary)' }} />
-                <h2 className="card-title">AI Copilot Decision Support</h2>
+        {/* Left: AI Copilot Suggestions & Quick Navigation */}
+        <div className="sentinel-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '340px' }}>
+          <div>
+            <div className="card-header-row" style={{ marginBottom: '14px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={18} style={{ color: 'var(--color-primary)' }} />
+                  <h2 className="card-title">AI Copilot Decision Support</h2>
+                </div>
+                <p className="card-subtitle">
+                  Deterministic tactical decision support powered by Neon PostgreSQL &amp; TreeSHAP inference.
+                </p>
               </div>
-              <p className="card-subtitle">
-                Deterministic tactical decision support powered by Neon PostgreSQL &amp; TreeSHAP inference.
-              </p>
+              <button
+                className="primary-btn"
+                onClick={() => onNavigateCopilot && onNavigateCopilot()}
+                style={{ fontSize: '12px', padding: '6px 14px' }}
+              >
+                <Bot size={14} />
+                <span>Launch AI Copilot</span>
+                <ChevronRight size={14} />
+              </button>
             </div>
-            <button
-              className="primary-btn"
-              onClick={() => onNavigateCopilot && onNavigateCopilot()}
-              style={{ fontSize: '12px', padding: '6px 14px' }}
-            >
-              <Bot size={14} />
-              <span>Launch AI Copilot</span>
-              <ChevronRight size={14} />
-            </button>
+
+            <div style={{ marginTop: '8px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-muted)', display: 'block', marginBottom: '8px' }}>
+                Select an Operational Question to Inquire:
+              </span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
+                {suggestedQuestions.map((q, idx) => (
+                  <div
+                    key={idx}
+                    className="suggested-inquest-card"
+                    onClick={() => onNavigateCopilot && onNavigateCopilot(q)}
+                    style={{
+                      padding: '12px 14px',
+                      backgroundColor: 'var(--color-bg-subtle)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.18s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '10px'
+                    }}
+                    title="Click to ask AI Copilot"
+                  >
+                    <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text)' }}>
+                      "{q}"
+                    </span>
+                    <ChevronRight size={14} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div style={{ marginTop: '16px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-muted)', display: 'block', marginBottom: '8px' }}>
-              Select an Operational Question to Inquire:
-            </span>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
-              {suggestedQuestions.map((q, idx) => (
-                <div
-                  key={idx}
-                  className="suggested-inquest-card"
-                  onClick={() => onNavigateCopilot && onNavigateCopilot(q)}
-                  style={{
-                    padding: '12px 14px',
-                    backgroundColor: 'var(--color-bg-subtle)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    transition: 'all 0.18s ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '10px'
-                  }}
-                  title="Click to ask AI Copilot"
-                >
-                  <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text)' }}>
-                    "{q}"
-                  </span>
-                  <ChevronRight size={14} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
-                </div>
-              ))}
+          {/* Tactical Copilot Live Posture Strip & Direct Prompt Bar */}
+          <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--color-border-subtle)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (quickQuery.trim() && onNavigateCopilot) onNavigateCopilot(quickQuery.trim());
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <input
+                type="text"
+                placeholder="Ask SentinelAI Copilot (e.g. Which hydraulic pumps show anomalous vibration?)..."
+                value={quickQuery}
+                onChange={(e) => setQuickQuery(e.target.value)}
+                style={{
+                  flex: 1,
+                  height: '38px',
+                  backgroundColor: 'var(--color-bg-subtle)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: '6px',
+                  padding: '0 12px',
+                  fontSize: '13px',
+                  color: 'var(--color-text)',
+                  outline: 'none'
+                }}
+              />
+              <button
+                type="submit"
+                className="secondary-btn"
+                style={{ height: '38px', padding: '0 14px', fontSize: '12px', whiteSpace: 'nowrap' }}
+              >
+                <span>Consult Copilot</span>
+                <ChevronRight size={13} />
+              </button>
+            </form>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: 'var(--color-text-muted)', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ShieldCheck size={13} style={{ color: 'var(--color-success)' }} />
+                <span>Zero Hallucination Protocol &bull; Calibrated TreeSHAP attributions</span>
+              </div>
+              <span>Grounding: <strong>Neon PostgreSQL Live Grounding</strong></span>
             </div>
           </div>
         </div>
@@ -357,7 +405,7 @@ export default function OverviewView({ onInspectAsset, onAnalyzeComponent, onNav
             <table className="sentinel-table">
               <thead>
                 <tr>
-                  <th style={{ width: '80px' }}>Priority</th>
+                  <th style={{ width: '90px', whiteSpace: 'nowrap' }}>Priority</th>
                   <th>Asset ID</th>
                   <th>Subsystem Component</th>
                   <th>Failure Risk</th>
@@ -368,17 +416,22 @@ export default function OverviewView({ onInspectAsset, onAnalyzeComponent, onNav
               <tbody>
                 {topPriorityAssetsToFix.map((c, idx) => (
                   <tr key={c.component_id || idx}>
-                    <td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
                       <span
                         style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          whiteSpace: 'nowrap',
                           fontSize: '11px',
                           fontWeight: 800,
-                          padding: '2px 8px',
+                          padding: '3px 8px',
                           borderRadius: '4px',
                           backgroundColor: 'var(--color-danger-dim)',
                           color: 'var(--color-danger)',
                           border: '1px solid var(--color-danger-border)',
-                          fontFamily: 'var(--font-family-mono)'
+                          fontFamily: 'var(--font-family-mono)',
+                          letterSpacing: '0.04em'
                         }}
                       >
                         #{idx + 1} FIX

@@ -7,6 +7,7 @@ import {
   Layers,
   RefreshCw,
   Search,
+  ChevronLeft,
   ChevronRight,
   ShieldCheck,
   AlertOctagon,
@@ -14,12 +15,13 @@ import {
   X,
   Eye,
   CheckCircle2,
-  Sliders
+  Sliders,
+  SlidersHorizontal
 } from 'lucide-react';
 import { getCriticalComponents, getHighPriorityComponents, getDashboardSummary } from '../../api/dashboard';
 import { getComponentHistory } from '../../api/components';
-import { PageHeader, KpiCard, StatusBadge, RiskBadge, LoadingState, EmptyState } from '../common/UIComponents';
-import TelemetryChart from '../fleet/TelemetryChart';
+import { PageHeader, KpiCard, StatusBadge, RiskBadge, LoadingState, EmptyState, ThemeDropdown } from '../common/UIComponents';
+import TelemetryChart, { METRIC_CONFIGS, OPERATIONAL_THRESHOLDS } from '../fleet/TelemetryChart';
 
 export default function TrendsHealthView({ onAnalyzeComponent, onInspectAsset }) {
   const [summary, setSummary] = useState(null);
@@ -30,11 +32,16 @@ export default function TrendsHealthView({ onAnalyzeComponent, onInspectAsset })
 
   // Selected component for deep telemetry curve inspection
   const [selectedCompId, setSelectedCompId] = useState('A035-HYD');
+  const [activeMetric, setActiveMetric] = useState('temperature');
   const [compHistory, setCompHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Asset/component search input
   const [assetSearch, setAssetSearch] = useState('');
+
+  // Pagination for ranking table
+  const [rankingPage, setRankingPage] = useState(1);
+  const rankingPageSize = 10;
 
   // Diagnostic summary modal item (for action button)
   const [summaryModalItem, setSummaryModalItem] = useState(null);
@@ -116,6 +123,28 @@ export default function TrendsHealthView({ onAnalyzeComponent, onInspectAsset })
     );
   });
 
+  useEffect(() => {
+    setRankingPage(1);
+  }, [assetSearch]);
+
+  // Ranking table pagination
+  const totalRankingPages = Math.ceil(filteredComponents.length / rankingPageSize) || 1;
+  const paginatedRanking = filteredComponents.slice((rankingPage - 1) * rankingPageSize, rankingPage * rankingPageSize);
+
+  // Active metric diagnostic statistics for side-by-side panel
+  const validMetricReadings = compHistory.filter(
+    (r) => r[activeMetric] !== null && r[activeMetric] !== undefined && !isNaN(Number(r[activeMetric]))
+  );
+  const metricValues = validMetricReadings.map((r) => Number(r[activeMetric]));
+  const metricMin = metricValues.length > 0 ? Math.min(...metricValues).toFixed(2) : '--';
+  const metricMax = metricValues.length > 0 ? Math.max(...metricValues).toFixed(2) : '--';
+  const metricAvg = metricValues.length > 0 ? (metricValues.reduce((a, b) => a + b, 0) / metricValues.length).toFixed(2) : '--';
+  const activeCfg = METRIC_CONFIGS[activeMetric] || METRIC_CONFIGS.temperature;
+  const activeThreshold = OPERATIONAL_THRESHOLDS[activeMetric];
+  const metricBreaches = activeThreshold?.ucl
+    ? metricValues.filter((v) => v > activeThreshold.ucl).length
+    : 0;
+
   return (
     <div className="trends-view-container">
       {/* 1. Header */}
@@ -158,48 +187,48 @@ export default function TrendsHealthView({ onAnalyzeComponent, onInspectAsset })
         </div>
       )}
 
-      {/* 2. Trend & Health Specific Metrics (Not Duplicating Overview) */}
+      {/* 2. Trend & Health Specific Metrics */}
       <div className="grid-kpi">
-        <div className="kpi-card" style={{ borderLeft: '3px solid #38bdf8' }}>
+        <div className="kpi-card variant-info">
           <div className="kpi-card-header">
-            <span className="kpi-title" style={{ color: '#38bdf8' }}>Telemetry Drift Rate</span>
-            <Activity size={16} style={{ color: '#38bdf8' }} />
+            <span className="kpi-title">Telemetry Drift Rate</span>
+            <Activity size={16} className="kpi-icon" />
           </div>
-          <div className="kpi-value" style={{ color: '#38bdf8' }}>3.8%</div>
+          <div className="kpi-value">3.8%</div>
           <div className="kpi-subtitle">Telemetry cycles exhibiting multi-cycle out-of-envelope drift</div>
         </div>
 
-        <div className="kpi-card" style={{ borderLeft: '3px solid #ef4444' }}>
+        <div className="kpi-card variant-critical">
           <div className="kpi-card-header">
-            <span className="kpi-title" style={{ color: '#ef4444' }}>Active Signal Divergences</span>
-            <AlertOctagon size={16} style={{ color: '#ef4444' }} />
+            <span className="kpi-title">Active Signal Divergences</span>
+            <AlertOctagon size={16} className="kpi-icon" />
           </div>
-          <div className="kpi-value" style={{ color: '#ef4444' }}>{safeCriticalList.length} <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>Signals</span></div>
+          <div className="kpi-value">{safeCriticalList.length} <span className="kpi-unit">Signals</span></div>
           <div className="kpi-subtitle">Critical channels exceeding Upper Critical Limit (UCL)</div>
         </div>
 
-        <div className="kpi-card" style={{ borderLeft: '3px solid #f97316' }}>
+        <div className="kpi-card variant-caution">
           <div className="kpi-card-header">
-            <span className="kpi-title" style={{ color: '#f97316' }}>Rate of Change (RoC) Index</span>
-            <TrendingUp size={16} style={{ color: '#f97316' }} />
+            <span className="kpi-title">Rate of Change (RoC) Index</span>
+            <TrendingUp size={16} className="kpi-icon" />
           </div>
-          <div className="kpi-value" style={{ color: '#f97316' }}>+12.4% <span style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>/ cycle</span></div>
+          <div className="kpi-value">+12.4% <span className="kpi-unit">/ cycle</span></div>
           <div className="kpi-subtitle">Mean degradation acceleration vector across monitored assemblies</div>
         </div>
 
-        <div className="kpi-card" style={{ borderLeft: '3px solid #22c55e' }}>
+        <div className="kpi-card variant-ready">
           <div className="kpi-card-header">
-            <span className="kpi-title" style={{ color: '#22c55e' }}>Monitored HUMS Channels</span>
-            <Radio size={16} style={{ color: '#22c55e' }} />
+            <span className="kpi-title">Monitored HUMS Channels</span>
+            <Radio size={16} className="kpi-icon" />
           </div>
-          <div className="kpi-value" style={{ color: '#22c55e' }}>2,200 <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>Sensors</span></div>
+          <div className="kpi-value">2,200 <span className="kpi-unit">Sensors</span></div>
           <div className="kpi-subtitle">High-frequency vibration, thermal, and pressure transducers</div>
         </div>
       </div>
 
-      {/* 3. Deep Telemetry Visualizer Card */}
-      <div className="sentinel-card" style={{ marginBottom: '20px' }}>
-        <div className="card-header-row" style={{ marginBottom: '14px' }}>
+      {/* 3. Deep Telemetry Visualizer Card (Side-by-Side Filter & Visual) */}
+      <div className="sentinel-card" style={{ marginBottom: '24px' }}>
+        <div className="card-header-row" style={{ marginBottom: '16px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Activity size={18} style={{ color: 'var(--color-primary)' }} />
@@ -210,64 +239,140 @@ export default function TrendsHealthView({ onAnalyzeComponent, onInspectAsset })
             </p>
           </div>
 
-          {/* Quick Component Search & Dropdown Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--color-bg)', padding: '5px 10px', borderRadius: '6px', border: '1px solid var(--color-border)', width: '220px' }}>
-              <Search size={13} style={{ color: 'var(--color-text-muted)' }} />
-              <input
-                type="text"
-                placeholder="Search Asset or Component..."
-                value={assetSearch}
-                onChange={(e) => setAssetSearch(e.target.value)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--color-text)', outline: 'none', width: '100%', fontSize: '12px' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <select
-                value={selectedCompId}
-                onChange={(e) => setSelectedCompId(e.target.value)}
-                className="sentinel-select"
-                style={{
-                  backgroundColor: 'var(--color-bg)',
-                  color: 'var(--color-text)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: '6px',
-                  padding: '6px 10px',
-                  fontSize: '12px',
-                  fontFamily: 'var(--font-family-mono)',
-                  maxWidth: '220px'
-                }}
-              >
-                {filteredComponents.map((c) => (
-                  <option key={c.component_id} value={c.component_id}>
-                    {c.component_id} ({c.asset_id} - {c.component_type})
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Quick Component Search input */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--color-bg)', padding: '5px 10px', borderRadius: '6px', border: '1px solid var(--color-border)', width: '220px' }}>
+            <Search size={13} style={{ color: 'var(--color-text-muted)' }} />
+            <input
+              type="text"
+              placeholder="Search Asset or Component..."
+              value={assetSearch}
+              onChange={(e) => setAssetSearch(e.target.value)}
+              style={{ background: 'transparent', border: 'none', color: 'var(--color-text)', outline: 'none', width: '100%', fontSize: '12px' }}
+            />
           </div>
         </div>
 
-        {loadingHistory ? (
-          <LoadingState
-            message={`Loading historical sensor readings for ${selectedCompId}...`}
-            subtext="Querying Neon sensor_readings table"
-            size="sm"
-            minHeight="200px"
-          />
-        ) : compHistory.length > 0 ? (
-          <TelemetryChart readings={compHistory} />
-        ) : (
-          <EmptyState
-            title="No Sensor Readings"
-            description={`No sensor records found in history for ${selectedCompId}.`}
-            icon={Radio}
-          />
-        )}
+        {/* Side-by-Side Grid: Filters & Telemetry Panel (Left) + Waveform Visualization (Right) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 320px) 1fr', gap: '20px', alignItems: 'start' }}>
+          {/* Left Column: Dropdown Controls & Operational Boundary Readouts */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: 'var(--color-bg-subtle)', padding: '16px', borderRadius: '8px', border: '1px solid var(--color-border-subtle)' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', marginBottom: '6px' }}>
+                Monitored Assembly
+              </label>
+              <ThemeDropdown
+                value={selectedCompId}
+                onChange={(val) => setSelectedCompId(val)}
+                placeholder="Select Assembly..."
+                minWidth="100%"
+                options={filteredComponents.map((c) => ({
+                  value: c.component_id,
+                  label: `${c.component_id} • ${c.component_type} (${c.asset_id})`
+                }))}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', marginBottom: '6px' }}>
+                Telemetry Channel Metric
+              </label>
+              <ThemeDropdown
+                value={activeMetric}
+                onChange={(val) => setActiveMetric(val)}
+                placeholder="Select Channel..."
+                minWidth="100%"
+                options={Object.entries(METRIC_CONFIGS).map(([k, cfg]) => ({
+                  value: k,
+                  label: `${cfg.label} (${cfg.unit})`
+                }))}
+              />
+            </div>
+
+            {/* Threshold Breach Status Strip */}
+            <div
+              style={{
+                padding: '8px 12px',
+                borderRadius: '6px',
+                backgroundColor: metricBreaches > 0 ? 'var(--color-danger-dim)' : 'var(--color-success-dim)',
+                border: `1px solid ${metricBreaches > 0 ? 'var(--color-danger-border)' : 'var(--color-success-border)'}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginTop: '4px'
+              }}
+            >
+              <span style={{ fontSize: '11px', fontWeight: 700, color: metricBreaches > 0 ? 'var(--color-danger)' : 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                {metricBreaches > 0 ? <AlertTriangle size={13} /> : <ShieldCheck size={13} />}
+                {metricBreaches > 0 ? `${metricBreaches} THRESHOLD BREACHES` : 'WITHIN NOMINAL BAND'}
+              </span>
+              <span style={{ fontSize: '11px', fontFamily: 'var(--font-family-mono)', color: 'var(--color-text-secondary)' }}>
+                {validMetricReadings.length} Samples
+              </span>
+            </div>
+
+            {/* Operational Boundaries & Stat Readouts */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginTop: '4px' }}>
+              <div style={{ padding: '8px 10px', backgroundColor: 'var(--color-surface)', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+                <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Observed Avg</span>
+                <div style={{ fontSize: '13px', fontWeight: 700, fontFamily: 'var(--font-family-mono)', color: 'var(--color-text)', marginTop: '2px' }}>
+                  {metricAvg} {activeCfg.unit}
+                </div>
+              </div>
+
+              <div style={{ padding: '8px 10px', backgroundColor: 'var(--color-surface)', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+                <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Observed Max</span>
+                <div style={{ fontSize: '13px', fontWeight: 800, fontFamily: 'var(--font-family-mono)', color: metricBreaches > 0 ? 'var(--color-danger)' : 'var(--color-text)', marginTop: '2px' }}>
+                  {metricMax} {activeCfg.unit}
+                </div>
+              </div>
+
+              {activeThreshold?.ucl && (
+                <div style={{ padding: '8px 10px', backgroundColor: 'var(--color-surface)', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--color-danger)', textTransform: 'uppercase' }}>UCL Limit</span>
+                  <div style={{ fontSize: '13px', fontWeight: 700, fontFamily: 'var(--font-family-mono)', color: 'var(--color-danger)', marginTop: '2px' }}>
+                    {activeThreshold.ucl} {activeCfg.unit}
+                  </div>
+                </div>
+              )}
+
+              {activeThreshold?.nominal && (
+                <div style={{ padding: '8px 10px', backgroundColor: 'var(--color-surface)', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--color-success)', textTransform: 'uppercase' }}>Nominal</span>
+                  <div style={{ fontSize: '13px', fontWeight: 700, fontFamily: 'var(--font-family-mono)', color: 'var(--color-success)', marginTop: '2px' }}>
+                    {activeThreshold.nominal} {activeCfg.unit}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Proportional Telemetry Waveform */}
+          <div style={{ minWidth: 0, width: '100%' }}>
+            {loadingHistory ? (
+              <LoadingState
+                message={`Loading historical sensor readings for ${selectedCompId}...`}
+                subtext="Querying Neon sensor_readings table"
+                size="sm"
+                minHeight="220px"
+              />
+            ) : compHistory.length > 0 ? (
+              <TelemetryChart
+                readings={compHistory}
+                activeMetric={activeMetric}
+                onMetricChange={setActiveMetric}
+              />
+            ) : (
+              <EmptyState
+                title="No Sensor Readings"
+                description={`No sensor records found in history for ${selectedCompId}.`}
+                icon={Radio}
+              />
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* 4. Streamlined 4-Signal Component Trend Risk Ranking Table */}
+      {/* 4. Streamlined 4-Signal Component Trend Risk Ranking Table with Pagination Limit */}
       <div className="sentinel-card">
         <div className="card-header-row" style={{ marginBottom: '14px' }}>
           <div>
@@ -291,92 +396,126 @@ export default function TrendsHealthView({ onAnalyzeComponent, onInspectAsset })
             icon={ShieldCheck}
           />
         ) : (
-          <div className="table-wrapper" style={{ overflowX: 'visible' }}>
-            <table className="sentinel-table" style={{ tableLayout: 'fixed', width: '100%' }}>
-              <thead>
-                <tr>
-                  <th style={{ width: '18%' }}>Component ID</th>
-                  <th style={{ width: '16%' }}>Subsystem</th>
-                  <th style={{ width: '14%' }}>Parent Asset</th>
-                  <th style={{ width: '14%' }}>Trend Score</th>
-                  <th style={{ width: '14%' }}>Priority Level</th>
-                  <th style={{ width: '12%' }}>Readiness</th>
-                  <th style={{ width: '12%', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredComponents.slice(0, 12).map((c) => {
-                  const isCrit = c.priority_level === 'CRITICAL';
-                  const isReady = c.failure_probability < 35 && c.priority_level !== 'CRITICAL' && c.priority_level !== 'HIGH';
+          <>
+            <div className="table-wrapper" style={{ overflowX: 'visible' }}>
+              <table className="sentinel-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: '18%' }}>Component ID</th>
+                    <th style={{ width: '16%' }}>Subsystem</th>
+                    <th style={{ width: '14%' }}>Parent Asset</th>
+                    <th style={{ width: '14%' }}>Trend Score</th>
+                    <th style={{ width: '14%' }}>Priority Level</th>
+                    <th style={{ width: '12%' }}>Readiness</th>
+                    <th style={{ width: '12%', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedRanking.map((c) => {
+                    const isCrit = c.priority_level === 'CRITICAL';
+                    const isReady = c.failure_probability < 35 && c.priority_level !== 'CRITICAL' && c.priority_level !== 'HIGH';
 
-                  return (
-                    <tr
-                      key={c.component_id}
-                      onClick={() => setSelectedCompId(c.component_id)}
-                      style={{ cursor: 'pointer', backgroundColor: selectedCompId === c.component_id ? 'var(--color-surface-hover)' : 'transparent' }}
-                    >
-                      <td>
-                        <strong style={{ fontFamily: 'var(--font-family-mono)', color: 'var(--color-text)', fontSize: '13px' }}>
-                          {c.component_id}
-                        </strong>
-                      </td>
-                      <td>{c.component_type}</td>
-                      <td>
-                        <button
-                          className="btn-link"
-                          style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 600 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onInspectAsset && onInspectAsset(c.asset_id);
-                          }}
-                        >
-                          {c.asset_id}
-                        </button>
-                      </td>
-                      <td>
-                        <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 700, color: c.trend_risk >= 70 ? 'var(--color-danger)' : 'var(--color-text)' }}>
-                          {c.trend_risk !== undefined ? `${c.trend_risk} / 100` : '--'}
-                        </span>
-                      </td>
-                      <td>
-                        <RiskBadge risk={c.priority_level} size="sm" />
-                      </td>
-                      <td>
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            fontFamily: 'var(--font-family-mono)',
-                            backgroundColor: isReady ? 'var(--color-success-dim)' : 'var(--color-danger-dim)',
-                            color: isReady ? 'var(--color-success)' : 'var(--color-danger)',
-                            border: `1px solid ${isReady ? 'var(--color-success-border)' : 'var(--color-danger-border)'}`
-                          }}
-                        >
-                          {isReady ? 'READY' : 'NOT READY'}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button
-                          className="secondary-btn"
-                          style={{ height: '28px', padding: '0 10px', fontSize: '11px', whiteSpace: 'nowrap' }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSummaryModalItem(c);
-                          }}
-                          title="View Diagnostic Details"
-                        >
-                          <Eye size={12} />
-                          <span>Summary</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                    return (
+                      <tr
+                        key={c.component_id}
+                        onClick={() => setSelectedCompId(c.component_id)}
+                        style={{ cursor: 'pointer', backgroundColor: selectedCompId === c.component_id ? 'var(--color-surface-hover)' : 'transparent' }}
+                      >
+                        <td>
+                          <strong style={{ fontFamily: 'var(--font-family-mono)', color: 'var(--color-text)', fontSize: '13px' }}>
+                            {c.component_id}
+                          </strong>
+                        </td>
+                        <td>{c.component_type}</td>
+                        <td>
+                          <button
+                            className="btn-link"
+                            style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 600 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onInspectAsset && onInspectAsset(c.asset_id);
+                            }}
+                          >
+                            {c.asset_id}
+                          </button>
+                        </td>
+                        <td>
+                          <span style={{ fontFamily: 'var(--font-family-mono)', fontWeight: 700, color: c.trend_risk >= 70 ? 'var(--color-danger)' : 'var(--color-text)' }}>
+                            {c.trend_risk !== undefined ? `${c.trend_risk} / 100` : '--'}
+                          </span>
+                        </td>
+                        <td>
+                          <RiskBadge risk={c.priority_level} size="sm" />
+                        </td>
+                        <td>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontFamily: 'var(--font-family-mono)',
+                              backgroundColor: isReady ? 'var(--color-success-dim)' : 'var(--color-danger-dim)',
+                              color: isReady ? 'var(--color-success)' : 'var(--color-danger)',
+                              border: `1px solid ${isReady ? 'var(--color-success-border)' : 'var(--color-danger-border)'}`
+                            }}
+                          >
+                            {isReady ? 'READY' : 'NOT READY'}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            className="secondary-btn"
+                            style={{ height: '28px', padding: '0 10px', fontSize: '11px', whiteSpace: 'nowrap' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSummaryModalItem(c);
+                            }}
+                            title="View Diagnostic Details"
+                          >
+                            <Eye size={12} />
+                            <span>Summary</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalRankingPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', padding: '8px 4px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                  Showing {(rankingPage - 1) * rankingPageSize + 1} - {Math.min(rankingPage * rankingPageSize, filteredComponents.length)} of {filteredComponents.length} components
+                </span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    className="secondary-btn"
+                    onClick={() => setRankingPage((p) => Math.max(p - 1, 1))}
+                    disabled={rankingPage === 1}
+                    style={{ height: '30px', padding: '0 10px', fontSize: '12px' }}
+                  >
+                    <ChevronLeft size={14} />
+                    <span>Prev</span>
+                  </button>
+                  <span style={{ display: 'flex', alignItems: 'center', padding: '0 8px', fontSize: '12px', fontFamily: 'var(--font-family-mono)', color: 'var(--color-text)' }}>
+                    Page {rankingPage} of {totalRankingPages}
+                  </span>
+                  <button
+                    className="secondary-btn"
+                    onClick={() => setRankingPage((p) => Math.min(p + 1, totalRankingPages))}
+                    disabled={rankingPage === totalRankingPages}
+                    style={{ height: '30px', padding: '0 10px', fontSize: '12px' }}
+                  >
+                    <span>Next</span>
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -456,7 +595,7 @@ export default function TrendsHealthView({ onAnalyzeComponent, onInspectAsset })
 
               <div style={{ padding: '12px', backgroundColor: 'var(--color-bg-subtle)', borderRadius: '6px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Failure Risk</span>
-                <div style={{ fontSize: '20px', fontFamily: 'var(--font-family-mono)', fontWeight: 800, color: summaryModalItem.failure_probability >= 70 ? 'var(--color-danger)' : '#f97316', marginTop: '2px' }}>
+                <div style={{ fontSize: '20px', fontFamily: 'var(--font-family-mono)', fontWeight: 800, color: summaryModalItem.failure_probability >= 70 ? 'var(--color-danger)' : 'var(--color-warning)', marginTop: '2px' }}>
                   {summaryModalItem.failure_probability}%
                 </div>
               </div>
