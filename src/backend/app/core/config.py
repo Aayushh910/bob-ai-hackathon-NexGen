@@ -32,9 +32,14 @@ class Settings(BaseSettings):
     # Optional direct DATABASE_URL override (e.g. Neon, Render, Supabase)
     DATABASE_URL: Optional[str] = None
 
-    # CORS configuration
-    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,https://sentinel-ai-ibm-bob.vercel.app"
-    CORS_ORIGIN_REGEX: str = r"https://.*\.vercel\.app"
+    # CORS configuration (whitelisting both local and deployed environments)
+    CORS_ORIGINS: str = (
+        "http://localhost:3000,http://localhost:5173,http://localhost:8000,"
+        "http://127.0.0.1:5173,http://127.0.0.1:8000,"
+        "https://sentinel-ai-ibm-bob.vercel.app,https://sentinel-ai-ibm-bob.vercel.app/,"
+        "https://bob-ai-hackathon-nexgen.onrender.com"
+    )
+    CORS_ORIGIN_REGEX: str = r"https://.*\.(vercel\.app|onrender\.com|netlify\.app|pages\.dev)"
     FRONTEND_URL: Optional[str] = "https://sentinel-ai-ibm-bob.vercel.app"
 
     # Security & JWT Configuration
@@ -57,9 +62,15 @@ class Settings(BaseSettings):
         )
 
     def get_cors_origins(self) -> List[str]:
+        if self.CORS_ORIGINS.strip() == "*":
+            return ["*"]
         origins = [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
-        if self.FRONTEND_URL and self.FRONTEND_URL.strip() not in origins:
-            origins.append(self.FRONTEND_URL.strip())
+        if self.FRONTEND_URL:
+            trimmed = self.FRONTEND_URL.strip().rstrip("/")
+            if trimmed not in origins:
+                origins.append(trimmed)
+            if f"{trimmed}/" not in origins:
+                origins.append(f"{trimmed}/")
         return origins
 
 settings = Settings()
