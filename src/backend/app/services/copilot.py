@@ -328,6 +328,11 @@ class OperationalCopilotEngine:
         for r in st_rows[:5]:
             aid = r[0]
             ast = db.query(Asset).filter(Asset.asset_id == aid).first()
+            pred = db.query(Prediction).filter(Prediction.asset_id == aid).order_by(Prediction.timestamp.desc()).first()
+            actual_fail_prob = float(pred.failure_probability) if pred else 0.0
+            actual_health = float(pred.health_score) if pred and pred.health_score else 20.0
+            actual_priority = pred.priority_level if pred and pred.priority_level else "CRITICAL"
+
             evidence.append(EvidenceItem(
                 source="READINESS_ENGINE",
                 metric=f"{aid}_critical_count",
@@ -340,10 +345,10 @@ class OperationalCopilotEngine:
                 model=ast.asset_type if ast else "Ground Vehicle",
                 location="Depot Sector Alpha",
                 readiness_state="NOT_READY",
-                readiness_score=20.0,
-                failure_probability=84.8 if aid == "A035" else 65.0,
+                readiness_score=actual_health,
+                failure_probability=actual_fail_prob,
                 rul_hours=12.0,
-                priority="CRITICAL"
+                priority=actual_priority
             ))
         actions = ["Halt deployment of all listed assets.", "Perform depot-level diagnostic verification before roster clearance."]
         return CopilotResponse(

@@ -1091,7 +1091,12 @@
     overflow: hidden;
     height: calc(100vh - var(--header-height));
     max-height: calc(100vh - var(--header-height));
-    padding-bottom: var(--space-4);
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--color-bg);
   }
 
   /* Layout Grid Standards */

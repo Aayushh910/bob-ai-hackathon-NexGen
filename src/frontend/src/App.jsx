@@ -270,9 +270,15 @@ export default function App() {
           )}
 
           {visitedTabs.has('copilot') && (
-            <div style={{ display: activeTab === 'copilot' ? 'block' : 'none', width: '100%' }}>
+            <div style={{ display: activeTab === 'copilot' ? 'flex' : 'none', width: '100%', height: '100%', flexDirection: 'column', flex: 1 }}>
               <ErrorBoundary title="AI Copilot">
-                <MLCopilotView onInspectAsset={handleInspectAsset} />
+                <MLCopilotView
+                  onInspectAsset={handleInspectAsset}
+                  onNavigateTab={handleTabChange}
+                  user={user}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                />
               </ErrorBoundary>
             </div>
           )}

@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
+    # IBM Bob API Configuration (Server-Side Only)
+    IBM_BOB_API_KEY: Optional[str] = None
+    IBM_BOB_API_URL: str = "https://api.us-east.bob.ibm.com/inference/v1/chat/completions"
+    IBM_BOB_MODEL: str = "ibm/granite-3-8b-instruct"
+    IBM_BOB_TIMEOUT_SECONDS: int = 5
+
     @computed_field
     @property
     def database_url(self) -> str:
