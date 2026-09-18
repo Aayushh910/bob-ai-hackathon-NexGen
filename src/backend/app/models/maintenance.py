@@ -27,5 +27,5 @@ class MaintenanceRecord(Base):
     maintenance_status = Column(String(50), nullable=False, default="COMPLETED", index=True)
 
     # Relationships
-    asset = relationship("Asset", back_populates="maintenance_records")
+    asset = relationship("Asset", foreign_keys=[asset_id])
 

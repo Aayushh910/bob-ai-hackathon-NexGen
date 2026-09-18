@@ -18,5 +18,5 @@ class Anomaly(Base):
     model_version = Column(String(50), nullable=True, default="1.0.0")
 
     # Relationships
-    asset = relationship("Asset", back_populates="anomalies")
-    sensor_reading = relationship("SensorReading", back_populates="anomalies")
+    asset = relationship("Asset", foreign_keys=[asset_id])
+    sensor_reading = relationship("SensorReading", foreign_keys=[sensor_reading_id])

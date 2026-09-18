@@ -21,4 +21,4 @@ class ReadinessAssessment(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
 
     # Relationships
-    asset = relationship("Asset", back_populates="readiness_assessments")
+    asset = relationship("Asset", foreign_keys=[asset_id])

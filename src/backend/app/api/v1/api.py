@@ -1,5 +1,8 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import health, assets, telemetry, predictions, anomalies, ml, readiness, recommendations, maintenance, command, copilot
+from app.api.v1.endpoints import (
+    health, assets, components, dashboard, telemetry, predictions,
+    anomalies, ml, readiness, recommendations, maintenance, command, copilot
+)
 
 api_router = APIRouter()
 
@@ -8,6 +11,12 @@ api_router.include_router(health.router, tags=["Health"])
 
 # Include asset endpoints
 api_router.include_router(assets.router, prefix="/assets", tags=["Assets"])
+
+# Include component endpoints
+api_router.include_router(components.router, prefix="/components", tags=["Components"])
+
+# Include dashboard endpoints
+api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
 
 # Include telemetry endpoints
 api_router.include_router(telemetry.router, prefix="/telemetry", tags=["Telemetry"])

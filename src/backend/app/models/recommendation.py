@@ -16,5 +16,5 @@ class Recommendation(Base):
     status = Column(String(50), nullable=False, default="PENDING")
 
     # Relationships
-    asset = relationship("Asset", back_populates="recommendations")
-    prediction = relationship("Prediction", back_populates="recommendations")
+    asset = relationship("Asset", foreign_keys=[asset_id])
+    prediction = relationship("Prediction", foreign_keys=[prediction_id])
