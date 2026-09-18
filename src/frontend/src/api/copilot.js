@@ -7,11 +7,12 @@ import apiClient from './client';
  * @returns {Promise<Object>}
  */
 export async function askCopilotQuery(query, assetId = null) {
+  const numericAssetId = typeof assetId === 'number' ? assetId : null;
   return await apiClient('/api/v1/copilot/query', {
     method: 'POST',
     body: JSON.stringify({
-      query,
-      asset_id: assetId,
+      query: String(query || '').trim(),
+      asset_id: numericAssetId,
     }),
   });
 }

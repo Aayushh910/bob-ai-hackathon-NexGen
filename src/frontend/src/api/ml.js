@@ -1,73 +1,30 @@
 import apiClient from './client';
+import { getCriticalComponents, getHighPriorityComponents } from './dashboard';
 
 /**
- * Get latest prediction for an asset.
- * @param {number} assetId
- * @returns {Promise<Object>}
+ * Fetch critical priority components across the fleet.
  */
-export async function getLatestPrediction(assetId) {
-  return await apiClient(`/api/v1/predictions/${assetId}/latest`);
+export async function getCriticalComponentPredictions() {
+  return await getCriticalComponents();
 }
 
 /**
- * Execute on-demand inference (Models A, B, C) on latest telemetry.
- * @param {number} assetId
- * @returns {Promise<Object>}
+ * Fetch high priority components across the fleet.
  */
-export async function runPrediction(assetId) {
-  return await apiClient(`/api/v1/predictions/${assetId}/run`, {
-    method: 'POST',
-  });
+export async function getHighPriorityComponentPredictions() {
+  return await getHighPriorityComponents();
 }
 
 /**
- * Get anomalies for a specific asset.
- * @param {number} assetId
- * @returns {Promise<Object>}
+ * Fetch ML predictions for a specific component.
  */
-export async function getAssetAnomalies(assetId) {
-  return await apiClient(`/api/v1/anomalies/${assetId}`);
+export async function getComponentPredictions(componentId) {
+  return await apiClient(`/api/v1/components/${encodeURIComponent(componentId)}/predictions`);
 }
 
 /**
- * Execute on-demand anomaly detection and sensor attribution.
- * @param {number} assetId
- * @returns {Promise<Object>}
+ * Fetch TreeSHAP feature attributions for a component.
  */
-export async function runAnomalyDetection(assetId) {
-  return await apiClient(`/api/v1/anomalies/${assetId}/run`, {
-    method: 'POST',
-  });
-}
-
-/**
- * Get ML model registry status.
- * @returns {Promise<Object>}
- */
-export async function getMlStatus() {
-  return await apiClient('/api/v1/ml/status');
-}
-
-/**
- * Get RUL estimate for an asset.
- * @param {number} assetId
- * @returns {Promise<Object>}
- */
-export async function getAssetRul(assetId) {
-  return await apiClient(`/api/v1/ml/rul/${assetId}`);
-}
-
-/**
- * Query fleet-wide anomalies.
- * @param {Object} params
- * @returns {Promise<Object>}
- */
-export async function getFleetAnomalies(params = {}) {
-  const query = new URLSearchParams();
-  if (params.skip !== undefined) query.append('skip', params.skip);
-  if (params.limit !== undefined) query.append('limit', params.limit);
-  if (params.severity) query.append('severity', params.severity);
-
-  const qs = query.toString();
-  return await apiClient(`/api/v1/anomalies${qs ? `?${qs}` : ''}`);
+export async function getComponentExplanation(componentId) {
+  return await apiClient(`/api/v1/components/${encodeURIComponent(componentId)}/explanation`);
 }
