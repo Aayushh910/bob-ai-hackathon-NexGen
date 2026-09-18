@@ -146,8 +146,9 @@ export default function AppShell({
           theme={theme}
           onToggleTheme={toggleTheme}
           systemHealthy={systemHealthy}
-          user={user}
           onMobileMenuToggle={() => setMobileMenuOpen((prev) => !prev)}
+          searchAssets={searchAssets}
+          onInspectAsset={onInspectAsset}
         />
 
         {/* Active View Container */}
