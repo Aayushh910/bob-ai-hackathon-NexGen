@@ -7,6 +7,7 @@ import ComponentAnalysisView from './components/components/ComponentAnalysisView
 import PredictionsView from './components/predictions/PredictionsView';
 import TrendsHealthView from './components/trends/TrendsHealthView';
 import MLCopilotView from './components/copilot/MLCopilotView';
+import ReportsView from './components/reports/ReportsView';
 import SettingsView from './components/settings/SettingsView';
 import LandingPage from './components/landing/LandingPage';
 import LoginPage from './components/landing/LoginPage';
@@ -19,6 +20,7 @@ const VALID_TABS = [
   'predictions',
   'trends',
   'copilot',
+  'reports',
   'settings'
 ];
 
@@ -206,6 +208,11 @@ export default function App() {
             componentId={analyzingComponentId}
             onBack={handleBackFromComponent}
             onInspectParentAsset={handleInspectAsset}
+            onNavigateTrends={(assetId) => {
+              setActiveTab('trends');
+              setAnalyzingComponentId(null);
+              setInspectingAssetId(null);
+            }}
           />
         </ErrorBoundary>
       ) : activeTab === 'fleet' && inspectingAssetId ? (
@@ -266,6 +273,14 @@ export default function App() {
             <div style={{ display: activeTab === 'copilot' ? 'block' : 'none', width: '100%' }}>
               <ErrorBoundary title="AI Copilot">
                 <MLCopilotView onInspectAsset={handleInspectAsset} />
+              </ErrorBoundary>
+            </div>
+          )}
+
+          {visitedTabs.has('reports') && (
+            <div style={{ display: activeTab === 'reports' ? 'block' : 'none', width: '100%' }}>
+              <ErrorBoundary title="Reports">
+                <ReportsView />
               </ErrorBoundary>
             </div>
           )}

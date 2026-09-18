@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -89,9 +89,23 @@ export function LoadingState({
   subtext = 'Connecting to Neon PostgreSQL database and diagnostic services',
   size = 'md',
   minHeight = null,
-  showPercentage = false,
+  showPercentage = true,
   className = ''
 }) {
+  const [percent, setPercent] = useState(18);
+
+  useEffect(() => {
+    if (!showPercentage) return;
+    const interval = setInterval(() => {
+      setPercent((prev) => {
+        if (prev >= 94) return 94;
+        const jump = Math.floor(Math.random() * 12) + 6;
+        return Math.min(prev + jump, 94);
+      });
+    }, 260);
+    return () => clearInterval(interval);
+  }, [showPercentage]);
+
   return (
     <div
       className={`sentinel-loading-state ${className}`.trim()}
@@ -100,8 +114,26 @@ export function LoadingState({
       aria-live="polite"
     >
       <LoadingSpinner size={size} />
-      {message && <div className="loading-state-title">{message}</div>}
-      {subtext && <div className="loading-state-sub">{subtext}</div>}
+      {message && <div className="loading-state-title" style={{ marginTop: '12px', fontWeight: 600 }}>{message}</div>}
+      {subtext && <div className="loading-state-sub" style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>{subtext}</div>}
+      {showPercentage && (
+        <div style={{ width: '220px', marginTop: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontFamily: 'var(--font-family-mono)', color: 'var(--color-text-muted)', marginBottom: '4px' }}>
+            <span>DATA PIPELINE</span>
+            <span style={{ fontWeight: 700, color: 'var(--color-text)' }}>{percent}%</span>
+          </div>
+          <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--color-border)', borderRadius: '2px', overflow: 'hidden' }}>
+            <div
+              style={{
+                width: `${percent}%`,
+                height: '100%',
+                backgroundColor: 'var(--color-success)',
+                transition: 'width 0.26s ease-out'
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -118,10 +150,26 @@ export function KpiCard({
   className = ''
 }) {
   let valColorClass = 'text-primary';
-  if (variant === 'ready' || variant === 'success') valColorClass = 'text-emerald';
-  else if (variant === 'caution' || variant === 'warning') valColorClass = 'text-amber';
-  else if (variant === 'critical' || variant === 'danger') valColorClass = 'text-rose';
-  else if (variant === 'cyan' || variant === 'accent') valColorClass = 'text-cyan';
+  let titleColorStyle = {};
+  let valueColorStyle = {};
+
+  if (variant === 'ready' || variant === 'success') {
+    valColorClass = 'text-emerald';
+    titleColorStyle = { color: '#86efac' };
+    valueColorStyle = { color: '#22c55e', textShadow: '0 0 16px rgba(34, 197, 94, 0.25)' };
+  } else if (variant === 'caution' || variant === 'warning') {
+    valColorClass = 'text-amber';
+    titleColorStyle = { color: '#fde047' };
+    valueColorStyle = { color: '#eab308', textShadow: '0 0 16px rgba(234, 179, 8, 0.25)' };
+  } else if (variant === 'critical' || variant === 'danger') {
+    valColorClass = 'text-rose';
+    titleColorStyle = { color: '#fca5a5' };
+    valueColorStyle = { color: '#ef4444', textShadow: '0 0 16px rgba(239, 68, 68, 0.25)' };
+  } else if (variant === 'cyan' || variant === 'accent') {
+    valColorClass = 'text-cyan';
+    titleColorStyle = { color: '#7dd3fc' };
+    valueColorStyle = { color: '#38bdf8', textShadow: '0 0 16px rgba(56, 189, 248, 0.25)' };
+  }
 
   const glowClass = variant !== 'default' ? 'card-glow-' + variant : '';
   const cardClass = 'kpi-card ' + glowClass + ' ' + className;
@@ -129,11 +177,11 @@ export function KpiCard({
   return (
     <div className={cardClass.trim()}>
       <div className="kpi-header">
-        <span className="kpi-title">{title}</span>
+        <span className="kpi-title" style={titleColorStyle}>{title}</span>
         {Icon && <Icon size={18} className={'kpi-icon ' + valColorClass} aria-hidden="true" />}
       </div>
 
-      <div className={'kpi-value ' + valColorClass} style={{ minHeight: '38px', display: 'flex', alignItems: 'center' }}>
+      <div className={'kpi-value ' + valColorClass} style={{ minHeight: '38px', display: 'flex', alignItems: 'center', ...valueColorStyle }}>
         {loading ? (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
             <LoadingSpinner size="sm" />
