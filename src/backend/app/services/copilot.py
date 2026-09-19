@@ -608,13 +608,31 @@ class OperationalCopilotEngine:
 
     def _handle_unknown(self, query: str, now: datetime) -> CopilotResponse:
         ans = (
-            "Inquest outside supported operational domain. SentinelAI Copilot answers deterministic operational questions "
-            "regarding fleet readiness, critical assets, failure risks, anomalies, RUL, maintenance schedules, and asset diagnostics. "
-            "Please select or phrase an inquest relating to fleet command intelligence."
+            "### ⚠️ SentinelAI Operational Scope Notice\n\n"
+            "Inquest outside supported operational domain. I am **SentinelAI**, an operational AI copilot dedicated **exclusively** to the "
+            "**SentinelAI Defense Mission Readiness & Predictive Maintenance Platform**.\n\n"
+            "I cannot answer general knowledge, jokes, weather, or queries unrelated to platform operations.\n\n"
+            "**Supported platform inquiries include:**\n"
+            "- **Fleet Readiness:** Fleet-wide readiness status and deployable asset counts\n"
+            "- **Asset Diagnostics:** Subsystem health and failure causes for specific assets (e.g., `A021`)\n"
+            "- **Failure Predictions:** Highest failure probability and low remaining useful life (RUL)\n"
+            "- **Telemetry & Anomalies:** Active sensor deviations, vibration/temperature spikes\n"
+            "- **Maintenance Directives:** Overdue servicing and prioritized maintenance interventions"
         )
         return CopilotResponse(
-            query=query, intent="UNKNOWN", confidence=0.0, answer=ans, evidence=[],
-            related_assets=[], recommended_actions=["Select one of the suggested command questions above."], timestamp=now
+            query=query,
+            intent="UNKNOWN",
+            confidence=0.0,
+            answer=ans,
+            evidence=[],
+            related_assets=[],
+            recommended_actions=[
+                "What is our current fleet readiness?",
+                "Which assets are NOT mission-ready?",
+                "Why is asset A021 down?",
+                "Which assets have highest failure risk?",
+            ],
+            timestamp=now
         )
 
 

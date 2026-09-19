@@ -650,6 +650,30 @@ Respond strictly with a JSON object:
         # Normalize query with synonyms, abbreviations, and typo corrections
         norm_query = self.normalize_text(raw_query)
 
+        # Fast Out-of-Domain Guard: jokes, weather, casual entertainment, sports, general trivia
+        out_of_domain_words = {
+            "joke", "jokes", "funny", "laugh", "humor", "riddle",
+            "weather", "forecast", "rain", "sunny",
+            "recipe", "recipes", "cook", "bake", "cake", "food", "pizza", "burger",
+            "movie", "movies", "film", "song", "music", "actor", "poem", "story", "book",
+            "sports", "cricket", "football", "soccer", "basketball", "olympics",
+            "president", "capital", "calculator"
+        }
+        tokens = set(re.findall(r"\b\w+\b", norm_query.lower()))
+        has_domain_signals = any(
+            w in norm_query for w in [
+                "readiness", "ready", "grounded", "critical", "urgent", "attention",
+                "failure", "breakdown", "probability", "risk", "anomaly", "anomalies",
+                "sensor", "telemetry", "rul", "useful life", "maintenance", "service",
+                "servicing", "overdue", "intervention", "trend", "deteriorat", "improving",
+                "changed", "asset", "platform", "vehicle", "unit", "machine", "fleet",
+                "status", "posture", "directive", "action", "hums", "fmc", "nmc", "sortie",
+                "sorties", "birds", "iron", "rigs", "hulls", "why", "check", "diagnos"
+            ]
+        )
+        if not has_asset and not has_domain_signals and tokens.intersection(out_of_domain_words):
+            return "UNKNOWN", 0.0, None
+
         # 1. First attempt LLM semantic classification if configured
         llm_result = self.classify_intent_llm(raw_query, asset_code)
         if llm_result:
