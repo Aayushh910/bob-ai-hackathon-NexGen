@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
+    # Single Administrator Account (Production Configuration)
+    ADMIN_EMAIL: str = "sentinelai712@gmail.com"
+    ADMIN_PASSWORD_HASH: Optional[str] = "$2b$12$A0XvgK4RCBVt.FxxPWoSxenOJ2GbEGAwOtJ7pc1pII0AODD4d84KW"
+    ADMIN_PASSWORD: Optional[str] = None
+    SESSION_COOKIE_NAME: str = "sentinel_session"
+    SESSION_COOKIE_SECURE: bool = False
+    SESSION_COOKIE_SAMESITE: str = "lax"
+    SESSION_EXPIRE_MINUTES: int = 1440
+
     # IBM Bob API Configuration (Server-Side Only)
     IBM_BOB_API_KEY: Optional[str] = None
     IBM_BOB_API_URL: str = "https://api.us-east.bob.ibm.com/inference/v1/chat/completions"

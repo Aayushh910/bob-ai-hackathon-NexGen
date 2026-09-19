@@ -13,6 +13,7 @@ import LandingPage from './components/landing/LandingPage';
 import LoginPage from './components/landing/LoginPage';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { getSystemHealth } from './api/health';
+import { checkSession, logout } from './api/auth';
 
 const VALID_TABS = [
   'overview',
@@ -24,132 +25,189 @@ const VALID_TABS = [
   'settings'
 ];
 
-const getInitialPage = () => {
-  const hash = window.location.hash.replace(/^#/, '');
-  if (VALID_TABS.includes(hash)) {
-    return 'dashboard';
-  }
-  return localStorage.getItem('sentinel_page') || 'landing';
-};
-
-const getInitialTab = () => {
-  const hash = window.location.hash.replace(/^#/, '');
-  if (VALID_TABS.includes(hash)) {
-    return hash;
-  }
-  const saved = localStorage.getItem('sentinel_tab');
-  if (saved && VALID_TABS.includes(saved)) {
-    return saved;
-  }
-  return 'overview';
-};
-
-const getInitialUser = () => {
-  try {
-    const saved = localStorage.getItem('sentinel_user');
-    if (saved) return JSON.parse(saved);
-  } catch (e) {
-    console.warn('Failed to parse saved user:', e);
-  }
-  return {
-    name: 'Major Alex Vance',
-    role: 'Operations Commander',
-    clearance: 'TOP SECRET / SCI'
-  };
-};
-
 export default function App() {
-  const [page, setPage] = useState(getInitialPage); // 'landing' | 'login' | 'dashboard'
-  const [user, setUser] = useState(getInitialUser);
-  const [activeTab, setActiveTab] = useState(getInitialTab);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [user, setUser] = useState(null);
+  const [page, setPage] = useState('landing'); // 'landing' | 'login' | 'dashboard'
+  const [sessionNotice, setSessionNotice] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
 
   // Contextual views state
   const [inspectingAssetId, setInspectingAssetId] = useState(null);
   const [analyzingComponentId, setAnalyzingComponentId] = useState(null);
 
   // Keep-alive cache
-  const [visitedTabs, setVisitedTabs] = useState(() => new Set(['overview', getInitialTab()]));
+  const [visitedTabs, setVisitedTabs] = useState(() => new Set(['overview']));
   const [healthData, setHealthData] = useState(null);
   const [theme, setTheme] = useState(() => localStorage.getItem('sentinel_theme') || 'dark');
 
-  // Persist page state to localStorage
+  // 1. Initial Authentication Check on Mount
   useEffect(() => {
-    localStorage.setItem('sentinel_page', page);
-  }, [page]);
+    let isMounted = true;
+    async function verifyInitialSession() {
+      try {
+        const session = await checkSession();
+        if (!isMounted) return;
 
-  // Persist user to localStorage
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('sentinel_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('sentinel_user');
+        const hash = window.location.hash.replace(/^#/, '');
+
+        if (session?.authenticated && session?.user) {
+          setUser(session.user);
+          if (hash === 'landing') {
+            setPage('landing');
+          } else {
+            setPage('dashboard');
+            if (VALID_TABS.includes(hash)) {
+              setActiveTab(hash);
+            } else {
+              setActiveTab('overview');
+              window.history.replaceState(null, '', '#overview');
+            }
+          }
+        } else {
+          setUser(null);
+          // If user specifically requested login or a protected tab, direct to login
+          if (hash === 'login') {
+            setPage('login');
+          } else if (VALID_TABS.includes(hash)) {
+            setPage('login');
+            setSessionNotice('Please sign in to access the SentinelAI Command Center.');
+            window.history.replaceState(null, '', '#login');
+          } else {
+            // Default to public landing page
+            setPage('landing');
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        }
+      } catch (err) {
+        if (!isMounted) return;
+        setUser(null);
+        setPage('landing');
+        window.history.replaceState(null, '', window.location.pathname);
+      } finally {
+        if (isMounted) {
+          setIsInitializing(false);
+        }
+      }
     }
-  }, [user]);
 
-  // Persist activeTab and sync with URL hash
+    verifyInitialSession();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // 2. Global Session Expiration Listener (triggered on 401s from apiClient)
   useEffect(() => {
-    if (page === 'dashboard') {
-      localStorage.setItem('sentinel_tab', activeTab);
-      window.history.replaceState(null, '', `#${activeTab}`);
-    }
-  }, [activeTab, page]);
+    const handleSessionExpired = (event) => {
+      setUser(null);
+      setPage('login');
+      setSessionNotice(event.detail?.message || 'Your session has expired. Please sign in again.');
+      window.history.replaceState(null, '', '#login');
+    };
 
-  // Handle browser back/forward buttons with hash
+    window.addEventListener('sentinel:session-expired', handleSessionExpired);
+    return () => {
+      window.removeEventListener('sentinel:session-expired', handleSessionExpired);
+    };
+  }, []);
+
+  // 3. Browser Back/Forward navigation with hash guard
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace(/^#/, '');
-      if (VALID_TABS.includes(hash)) {
+
+      if (!user) {
+        if (hash === 'login') {
+          setPage('login');
+        } else if (VALID_TABS.includes(hash)) {
+          // Reject direct access to protected dashboard tabs if not logged in
+          setPage('login');
+          setSessionNotice('Please sign in to access the SentinelAI Command Center.');
+          window.history.replaceState(null, '', '#login');
+        } else {
+          setPage('landing');
+        }
+        return;
+      }
+
+      // If authenticated:
+      if (hash === 'landing') {
+        setPage('landing');
+      } else if (hash === 'login') {
+        // Authenticated users don't need login, route to dashboard
+        setPage('dashboard');
+        window.history.replaceState(null, '', `#${activeTab}`);
+      } else if (VALID_TABS.includes(hash)) {
         setActiveTab(hash);
         setInspectingAssetId(null);
         setAnalyzingComponentId(null);
         setPage('dashboard');
       }
     };
+
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  }, [user, activeTab]);
 
+  // 4. Track visited tabs for keep-alive DOM rendering
   useEffect(() => {
-    setVisitedTabs((prev) => {
-      if (prev.has(activeTab)) return prev;
-      const next = new Set(prev);
-      next.add(activeTab);
-      return next;
-    });
-  }, [activeTab]);
+    if (page === 'dashboard') {
+      setVisitedTabs((prev) => {
+        if (prev.has(activeTab)) return prev;
+        const next = new Set(prev);
+        next.add(activeTab);
+        return next;
+      });
+      window.history.replaceState(null, '', `#${activeTab}`);
+    }
+  }, [activeTab, page]);
 
+  // 5. System Health Polling (only run when authenticated)
   const fetchHealth = useCallback(async () => {
+    if (!user) return;
     try {
       const data = await getSystemHealth();
       setHealthData(data);
     } catch (err) {
       console.warn('Health check warning:', err);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    fetchHealth();
-    const timer = setInterval(fetchHealth, 45000);
-    return () => clearInterval(timer);
-  }, [fetchHealth]);
+    if (user && page === 'dashboard') {
+      fetchHealth();
+      const timer = setInterval(fetchHealth, 45000);
+      return () => clearInterval(timer);
+    }
+  }, [user, page, fetchHealth]);
 
-  const handleLogin = (userData) => {
-    const loggedUser = userData || {
-      name: 'Commander',
-      role: 'Operations Command',
-      clearance: 'SECRET'
-    };
-    setUser(loggedUser);
+  // 6. Authentication Actions
+  const handleLogin = (adminUser) => {
+    setUser(adminUser);
+    setSessionNotice(null);
     setPage('dashboard');
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const targetTab = VALID_TABS.includes(hash) ? hash : 'overview';
+    setActiveTab(targetTab);
+    window.history.replaceState(null, '', `#${targetTab}`);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('sentinel_page');
-    localStorage.removeItem('sentinel_user');
-    localStorage.removeItem('sentinel_tab');
-    window.history.replaceState(null, '', window.location.pathname);
+  const handleLogout = async () => {
+    await logout();
     setUser(null);
     setPage('landing');
+    setSessionNotice(null);
+    setInspectingAssetId(null);
+    setAnalyzingComponentId(null);
+    window.history.replaceState(null, '', window.location.pathname);
+  };
+
+  const handleBackToLanding = () => {
+    setPage('landing');
+    setSessionNotice(null);
+    window.history.replaceState(null, '', window.location.pathname);
   };
 
   const toggleTheme = () => {
@@ -161,7 +219,7 @@ export default function App() {
     });
   };
 
-  // Contextual view navigation handlers
+  // 7. Contextual view navigation handlers
   const handleInspectAsset = (assetId) => {
     setInspectingAssetId(assetId);
     setAnalyzingComponentId(null);
@@ -187,9 +245,60 @@ export default function App() {
     setAnalyzingComponentId(null);
   };
 
-  if (page === 'landing') return <LandingPage onEnter={() => setPage('login')} />;
-  if (page === 'login') return <LoginPage onLogin={handleLogin} onBack={() => setPage('landing')} />;
+  // ── Initial Security Loading State ──
+  if (isInitializing) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          backgroundColor: '#050505',
+          color: '#ffffff',
+          fontFamily: 'Inter, -apple-system, sans-serif'
+        }}
+      >
+        <div style={{ width: '44px', height: '44px', marginBottom: '16px' }}>
+          <img src="/logo.png" alt="SentinelAI" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        </div>
+        <div style={{ fontSize: '12px', fontWeight: 600, color: '#737373', letterSpacing: '0.08em' }}>
+          INITIALIZING SECURITY CLEARANCE...
+        </div>
+      </div>
+    );
+  }
 
+  // ── Landing Page (Accessible to all users) ──
+  if (page === 'landing') {
+    return (
+      <LandingPage
+        onEnter={() => {
+          if (user) {
+            setPage('dashboard');
+            window.history.replaceState(null, '', `#${activeTab}`);
+          } else {
+            setPage('login');
+            window.history.replaceState(null, '', '#login');
+          }
+        }}
+      />
+    );
+  }
+
+  // ── Sign-in / Login Page (with Back to Landing Page button) ──
+  if (page === 'login' || !user) {
+    return (
+      <LoginPage
+        onLogin={handleLogin}
+        onBack={handleBackToLanding}
+        sessionExpiredNotice={sessionNotice}
+      />
+    );
+  }
+
+  // ── Authenticated State: Protected SentinelAI App Shell ──
   const isHealthy = healthData?.status === 'healthy';
 
   return (
@@ -208,7 +317,7 @@ export default function App() {
             componentId={analyzingComponentId}
             onBack={handleBackFromComponent}
             onInspectParentAsset={handleInspectAsset}
-            onNavigateTrends={(assetId) => {
+            onNavigateTrends={() => {
               setActiveTab('trends');
               setAnalyzingComponentId(null);
               setInspectingAssetId(null);
@@ -225,7 +334,7 @@ export default function App() {
           />
         </ErrorBoundary>
       ) : (
-        /* Standard 6 Top-Level Views */
+        /* Standard 7 Protected Top-Level Views */
         <>
           {visitedTabs.has('overview') && (
             <div style={{ display: activeTab === 'overview' ? 'block' : 'none', width: '100%' }}>

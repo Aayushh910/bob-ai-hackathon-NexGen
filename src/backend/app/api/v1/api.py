@@ -1,50 +1,58 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from app.core.security import get_current_admin
 from app.api.v1.endpoints import (
-    health, assets, components, dashboard, telemetry, predictions,
+    auth, health, assets, components, dashboard, telemetry, predictions,
     anomalies, ml, readiness, recommendations, maintenance, command, copilot, chat
 )
 
 api_router = APIRouter()
 
-# Include health endpoints
+# ── Public Endpoints (No Authentication Required) ──
+# Authentication login, logout, and session check
+api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+
+# Health checks for infrastructure monitoring
 api_router.include_router(health.router, tags=["Health"])
 
-# Include asset endpoints
-api_router.include_router(assets.router, prefix="/assets", tags=["Assets"])
 
-# Include component endpoints
-api_router.include_router(components.router, prefix="/components", tags=["Components"])
+# ── Protected Endpoints (Strict Administrator Authentication Required) ──
+protected_dep = [Depends(get_current_admin)]
 
-# Include dashboard endpoints
-api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
+# Fleet assets
+api_router.include_router(assets.router, prefix="/assets", tags=["Assets"], dependencies=protected_dep)
 
-# Include telemetry endpoints
-api_router.include_router(telemetry.router, prefix="/telemetry", tags=["Telemetry"])
+# Subsystem components
+api_router.include_router(components.router, prefix="/components", tags=["Components"], dependencies=protected_dep)
 
-# Include predictions endpoints
-api_router.include_router(predictions.router, prefix="/predictions", tags=["Predictions"])
+# Operational dashboard
+api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"], dependencies=protected_dep)
 
-# Include anomalies endpoints
-api_router.include_router(anomalies.router, prefix="/anomalies", tags=["Anomalies"])
+# Sensor telemetry
+api_router.include_router(telemetry.router, prefix="/telemetry", tags=["Telemetry"], dependencies=protected_dep)
 
-# Include ML status & RUL endpoints
-api_router.include_router(ml.router, prefix="/ml", tags=["Machine Learning"])
+# Predictive failure horizons
+api_router.include_router(predictions.router, prefix="/predictions", tags=["Predictions"], dependencies=protected_dep)
 
-# Include Mission Readiness endpoints
-api_router.include_router(readiness.router, prefix="/readiness", tags=["Mission Readiness"])
+# Telemetry anomalies
+api_router.include_router(anomalies.router, prefix="/anomalies", tags=["Anomalies"], dependencies=protected_dep)
 
-# Include Recommendations endpoints
-api_router.include_router(recommendations.router, prefix="/recommendations", tags=["Recommendations"])
+# Machine learning diagnostics
+api_router.include_router(ml.router, prefix="/ml", tags=["Machine Learning"], dependencies=protected_dep)
 
-# Include Maintenance endpoints (Phase 5)
-api_router.include_router(maintenance.router, prefix="/maintenance", tags=["Maintenance"])
+# Fleet mission readiness
+api_router.include_router(readiness.router, prefix="/readiness", tags=["Mission Readiness"], dependencies=protected_dep)
 
-# Include Command Intelligence endpoints (Phase 6)
-api_router.include_router(command.router, prefix="/command", tags=["Command Intelligence"])
+# Prescriptive recommendations
+api_router.include_router(recommendations.router, prefix="/recommendations", tags=["Recommendations"], dependencies=protected_dep)
 
-# Include Operational Copilot endpoints (Phase 6)
-api_router.include_router(copilot.router, prefix="/copilot", tags=["Operational Copilot"])
+# Maintenance orders & logs
+api_router.include_router(maintenance.router, prefix="/maintenance", tags=["Maintenance"], dependencies=protected_dep)
 
-# Include Production Chatbot endpoints
-api_router.include_router(chat.router, prefix="/chat", tags=["SentinelAI Chatbot"])
+# Command intelligence
+api_router.include_router(command.router, prefix="/command", tags=["Command Intelligence"], dependencies=protected_dep)
 
+# Operational copilot
+api_router.include_router(copilot.router, prefix="/copilot", tags=["Operational Copilot"], dependencies=protected_dep)
+
+# Tactical chatbot
+api_router.include_router(chat.router, prefix="/chat", tags=["SentinelAI Chatbot"], dependencies=protected_dep)

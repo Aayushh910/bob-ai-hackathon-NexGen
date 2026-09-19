@@ -134,14 +134,14 @@ export default function Sidebar({
           <div
             className="user-profile-card"
             style={{ marginBottom: '10px', padding: '6px 10px' }}
-            title={`${user.name || 'Commander'} (${user.role || 'Officer'})`}
+            title={`${user.name || 'Administrator'} (${user.email || 'sentinelai712@gmail.com'})`}
           >
             <div className="user-avatar-initials" style={{ width: '28px', height: '28px', fontSize: '11px' }}>
-              {(user.name || 'SA').slice(0, 2).toUpperCase()}
+              {(user.name || 'AD').slice(0, 2).toUpperCase()}
             </div>
             <div className="user-info-text">
-              <span className="user-name-line" style={{ fontSize: '12px', fontWeight: 600 }}>{user.name || 'Commander'}</span>
-              <span className="user-role-badge" style={{ fontSize: '10px' }}>{user.role || 'Operational Command'}</span>
+              <span className="user-name-line" style={{ fontSize: '12px', fontWeight: 600 }}>{user.name || 'Administrator'}</span>
+              <span className="user-role-badge" style={{ fontSize: '10px', color: '#9ca3af' }}>{user.email || 'sentinelai712@gmail.com'}</span>
             </div>
           </div>
         )}

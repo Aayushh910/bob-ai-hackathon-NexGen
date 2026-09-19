@@ -1,54 +1,51 @@
 import React, { useState } from 'react';
 import {
-  Shield,
   Eye,
   EyeOff,
-  Lock,
-  User,
-  CheckCircle2,
   AlertCircle,
   ArrowRight,
   ArrowLeft,
   ShieldCheck,
-  Key
+  CheckCircle2,
+  Lock,
+  Info
 } from 'lucide-react';
 import TacticalBackground from './TacticalBackground';
+import { login } from '../../api/auth';
 
-export default function LoginPage({ onLogin, onBack }) {
-  const [username, setUsername] = useState('');
+export default function LoginPage({ onLogin, onBack, sessionExpiredNotice = null }) {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
-  const [showQuickAccess, setShowQuickAccess] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!username.trim() || !password.trim()) {
-      setErrorMsg('Please enter both your username/email and password.');
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      setErrorMsg('Please enter both your official email and security password.');
       return;
     }
 
     setIsLoading(true);
     setErrorMsg(null);
 
-    setTimeout(() => {
+    try {
+      const response = await login({ email: cleanEmail, password: cleanPassword });
+      if (response?.authenticated && response?.user) {
+        onLogin(response.user);
+      } else {
+        setErrorMsg(response?.message || 'Invalid email or password.');
+      }
+    } catch (err) {
+      const message = err?.details?.detail || err?.message || 'Invalid email or password.';
+      setErrorMsg(message);
+    } finally {
       setIsLoading(false);
-      const isAdm = username.trim().toLowerCase() === 'admin';
-
-      onLogin({
-        name: isAdm ? 'Administrator Core' : `Major ${username.trim()}`,
-        username: username.trim(),
-        role: isAdm ? 'Enterprise Administrator' : 'Operations Commander',
-        clearance: isAdm ? 'TOP SECRET / SCI' : 'SECRET',
-      });
-    }, 500);
-  };
-
-  const handleApplyAdmin = () => {
-    setUsername('admin');
-    setPassword('admin123');
-    setErrorMsg(null);
+    }
   };
 
   return (
@@ -113,8 +110,26 @@ export default function LoginPage({ onLogin, onBack }) {
           <h2 className="auth-form-title">Sign in to SentinelAI</h2>
           <p className="auth-form-sub">Enter your security credentials to access the command platform.</p>
 
+          {/* Session Expiration Notice */}
+          {sessionExpiredNotice && !errorMsg && (
+            <div
+              className="auth-error-banner"
+              role="status"
+              style={{
+                backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                borderColor: 'rgba(234, 179, 8, 0.3)',
+                color: '#eab308',
+                marginBottom: '14px'
+              }}
+            >
+              <Info size={15} style={{ flexShrink: 0 }} />
+              <span>{sessionExpiredNotice}</span>
+            </div>
+          )}
+
+          {/* Error Banner */}
           {errorMsg && (
-            <div className="auth-error-banner" role="alert">
+            <div className="auth-error-banner" role="alert" style={{ marginBottom: '14px' }}>
               <AlertCircle size={15} style={{ flexShrink: 0 }} />
               <span>{errorMsg}</span>
             </div>
@@ -122,36 +137,28 @@ export default function LoginPage({ onLogin, onBack }) {
 
           <form className="auth-form" onSubmit={handleSubmit}>
             <div className="auth-form-group">
-              <label className="auth-label" htmlFor="auth-username">
-                Username or Official Email
+              <label className="auth-label" htmlFor="auth-email">
+                Official Email
               </label>
               <div className="auth-input-wrap">
                 <input
-                  id="auth-username"
-                  type="text"
+                  id="auth-email"
+                  type="email"
                   className="auth-input"
-                  placeholder="e.g. admin"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  autoComplete="username"
+                  placeholder="admin@sentinelai.internal"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
                   required
+                  disabled={isLoading}
                 />
               </div>
             </div>
 
             <div className="auth-form-group">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label className="auth-label" htmlFor="auth-password">
-                  Security Password
-                </label>
-                <button
-                  type="button"
-                  style={{ fontSize: '11px', color: '#737373' }}
-                  onClick={() => alert('Please contact your SentinelAI System Administrator for credential resets.')}
-                >
-                  Forgot password?
-                </button>
-              </div>
+              <label className="auth-label" htmlFor="auth-password">
+                Password
+              </label>
 
               <div className="auth-input-wrap">
                 <input
@@ -163,12 +170,14 @@ export default function LoginPage({ onLogin, onBack }) {
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                   required
+                  disabled={isLoading}
                 />
                 <button
                   type="button"
                   className="auth-eye-btn"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  tabIndex={-1}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -179,38 +188,16 @@ export default function LoginPage({ onLogin, onBack }) {
               type="submit"
               className="primary-btn"
               disabled={isLoading}
-              style={{ width: '100%', height: '44px', marginTop: '8px' }}
+              style={{ width: '100%', height: '44px', marginTop: '12px' }}
             >
-              {isLoading ? 'Authenticating...' : 'Sign In to Command Center'}
-              <ArrowRight size={16} />
+              {isLoading ? 'Authenticating...' : 'Sign In'}
+              {!isLoading && <ArrowRight size={16} />}
             </button>
           </form>
 
-          {/* Discreet Single Quick Access (Admin Only, Toggleable, Low Opacity) */}
-          <div className="quick-access-section">
-            <button
-              type="button"
-              className="quick-access-trigger-btn"
-              onClick={() => setShowQuickAccess((prev) => !prev)}
-              title="Reveal quick demo access credentials"
-            >
-              <Key size={12} />
-              <span>{showQuickAccess ? 'Hide Quick Access' : 'Quick Access (Demo)'}</span>
-            </button>
-
-            {showQuickAccess && (
-              <div className="admin-quick-access-card" onClick={handleApplyAdmin} role="button" tabIndex={0}>
-                <div className="admin-quick-access-info">
-                  <span className="admin-quick-badge">ADMIN ONLY</span>
-                  <div className="admin-cred-text">
-                    <span>User: <strong>admin</strong></span>
-                    <span style={{ color: '#444' }}>&bull;</span>
-                    <span>Pass: <strong>admin123</strong></span>
-                  </div>
-                </div>
-                <span className="admin-fill-cta">Auto-Fill</span>
-              </div>
-            )}
+          <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '11px', color: '#555555' }}>
+            <Lock size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-top' }} />
+            Single-operator restricted environment &bull; IP-monitored rate limiting
           </div>
         </div>
       </div>

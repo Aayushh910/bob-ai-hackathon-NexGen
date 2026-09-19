@@ -109,8 +109,17 @@ export async function apiClient(endpoint, options = {}) {
       'Accept': 'application/json',
     };
 
+    // Attach stored JWT token if available
+    try {
+      const storedToken = sessionStorage.getItem('sentinel_auth_token');
+      if (storedToken && (!options.headers || !options.headers.Authorization)) {
+        defaultHeaders['Authorization'] = `Bearer ${storedToken}`;
+      }
+    } catch (e) {}
+
     try {
       const response = await fetch(url, {
+        credentials: 'include',
         ...options,
         headers: {
           ...defaultHeaders,
@@ -130,7 +139,23 @@ export async function apiClient(endpoint, options = {}) {
       }
 
       if (!response.ok) {
-        const errorMessage = data?.message || data?.error || `HTTP ${response.status}: Request failed`;
+        // Handle session expiration on protected APIs (ignore login endpoint itself)
+        if (response.status === 401 && !endpoint.includes('/auth/login')) {
+          try {
+            sessionStorage.removeItem('sentinel_auth_token');
+            sessionStorage.removeItem('sentinel_auth_user');
+          } catch (e) {}
+          clearApiCache();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('sentinel:session-expired', {
+                detail: { message: 'Your session has expired. Please sign in again.' },
+              })
+            );
+          }
+        }
+
+        const errorMessage = data?.message || data?.error || data?.detail || `HTTP ${response.status}: Request failed`;
         throw new ApiError(errorMessage, response.status, data);
       }
 
