@@ -25,18 +25,19 @@ Military maintenance and operations teams struggle to accurately determine wheth
 
 > In 2–3 sentences: What did you build? How does it solve the problem above?
 
-SentinelAI is an AI-powered copilot that ingests Health and Usage Monitoring System (HUMS) multi-sensor telemetry and service histories across military fleet assets. It runs a production machine learning pipeline (Random Forest failure probability, Extra Trees RUL regression, failure mode classification, and Isolation Forest anomaly detection) to classify assets into a 4-tier readiness framework (`READY`, `CAUTION`, `DEGRADED`, `NOT_READY`). Coupled with an evidence-backed Operational Copilot and a closed-loop maintenance scheduler, it translates sensor drift into prioritized interventions and plain-language commander intelligence before mechanical failures ground critical missions.
+SentinelAI is an AI-powered copilot and command intelligence platform that ingests multi-channel Health and Usage Monitoring System (HUMS) telemetry and service histories across military fleet assets. It runs a production machine learning pipeline—featuring 8 component-specific anomaly and failure prediction pipelines (Random Forest and XGBoost across Engine, Battery, Fuel Pump, and Hydraulic System), SHAP TreeExplainer feature attributions, and a deterministic 4-tier readiness engine (`READY`, `CAUTION`, `DEGRADED`, `NOT_READY`). Coupled with a hybrid Semantic Paraphrase Copilot (powered by Groq and IBM Bob with a domain-guarded boundary) and closed-loop maintenance workflows, it translates raw sensor drift into prioritized interventions and plain-language commander intelligence.
 
 ---
 
 ## ✨ Key Features
 
-- **Multi-Model Predictive Failure & RUL Analysis** — Deploys dedicated ML models (Random Forest classifier & Extra Trees regressor) to compute 50-hour failure probabilities, Remaining Useful Life (RUL) in operating hours, and specific failure modes (e.g., pressure drop, bearing wear, overheating).
-- **Multi-Sensor Telemetry Anomaly Detection** — Ingests multi-channel HUMS telemetry (vibration, temperature, oil/fuel/hydraulic pressure, RPM, voltage) and isolates real-time operational deviations using an Isolation Forest engine.
-- **4-Tier Deterministic Readiness Assessment** — Evaluates fleet assets on an explainable 0–100 readiness score and categorizes them into `READY`, `CAUTION`, `DEGRADED`, or `NOT_READY` based on multi-factor telemetry health and operational constraints.
-- **Natural-Language & Paraphrase Understanding Copilot** — Robust semantic understanding engine routing 15 operational capabilities without keyword gates, multi-pattern entity extraction (`A021`, `Platform 21`, `Unit #21`), defense abbreviation expansion (`FMC`, `NMC`, `RUL`, `HUMS`), typo tolerance, and contextual follow-ups powered by Groq (GPT-OSS / Llama 3.3) and IBM Bob / Granite.
-- **Prioritized Maintenance Planning & Closed-Loop Reassessment** — Automatically compiles and ranks interventions by urgency (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`), maps affected subsystems, and validates post-maintenance readiness recovery using verified re-assessment workflows.
-- **Actionable Failure Resolution Recommendations** — Synthesizes prioritized, deduplicated corrective actions mapped directly to diagnosed failure modes (e.g., subsystem teardowns, component wear inspections, sensor recalibrations, or overhaul schedules) to resolve identified failure risks prior to sortie deployment.
+- **Component-Specific Predictive Failure Analysis** — Evaluates 50-hour breakdown probabilities and operational risks using dedicated, serialized ML pipelines for critical subsystems (Engine, Battery, Fuel Pump, and Hydraulic System).
+- **Multi-Sensor Telemetry Anomaly Detection & SHAP Attributions** — Ingests multi-channel HUMS telemetry (vibration, temperature, oil/fuel/hydraulic pressures, RPM, voltage) and isolates operational anomalies, computing exact SHAP feature attributions and root-cause reasons.
+- **Deterministic 4-Tier Readiness & Health Scoring** — Calculates composite health scores ($0–100$) and categorizes assets into `READY`, `CAUTION`, `DEGRADED`, or `NOT_READY` using multi-factor telemetry variance and operational constraints.
+- **Natural-Language Semantic Copilot with Out-of-Domain Guarding** — Robust hybrid conversational copilot routing 15 operational intent categories with TF-IDF cosine similarity, defense abbreviation expansion (`FMC`, `NMC`, `RUL`, `HUMS`), typo tolerance, entity extraction (`A021`, `Platform 21`), and Groq / IBM Bob LLM synthesis—with strict platform scope guarding.
+- **Prioritized Maintenance Planning & Closed-Loop Work Orders** — Automatically ranks maintenance interventions by urgency (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`), maps affected subsystems, and validates post-maintenance readiness recovery.
+- **Comprehensive Reporting & Export** — Enables instant client-side CSV dataset downloads with complete sensor telemetry and generates tactical PDF readiness briefs with executive metrics.
+- **Restricted Defense Notification Engine** — Integrates a dual-channel alerting service (`alert_notifier.py`) supporting authenticated SMTP TLS and Brevo API fallback with strict static recipient whitelisting.
 
 ---
 
@@ -44,11 +45,15 @@ SentinelAI is an AI-powered copilot that ingests Health and Usage Monitoring Sys
 
 | Category | Technologies |
 |---|---|
-| **Languages** | Python, JavaScript |
-| **Frameworks** | FastAPI, React, Scikit-learn |
-| **IBM & AI Technologies** | IBM Bob, Groq AI Inference |
-| **Databases** | PostgreSQL |
-| **Other** | Docker, Git, GitHub, REST APIs, Alembic, Pytest, TF-IDF NLP |
+| **Languages** | Python 3.11, JavaScript (ES Modules) |
+| **Backend Framework** | FastAPI, Uvicorn, Pydantic v2, Pydantic Settings |
+| **Frontend Console** | React 19, Vite 8, Lucide React, Oxlint, Vanilla CSS / CSS Tokens |
+| **Machine Learning** | Scikit-learn, XGBoost, SHAP (TreeExplainer), NumPy, Pandas, Pickle |
+| **AI & LLM Providers** | Groq API (`openai/gpt-oss-120b`), IBM Bob API (`ibm/granite-3-8b-instruct`), Scikit-learn TF-IDF Vectorizer |
+| **Databases & ORM** | PostgreSQL 14+ / Neon Serverless PostgreSQL, SQLAlchemy 2.0, Alembic |
+| **Security & Auth** | Single-Administrator Bcrypt Authentication, JWT Sessions, HTTP-Only Cookie + Bearer Token |
+| **Alerting & Notification** | Secure SMTP (TLS), Brevo API Fallback, Static Recipient Whitelisting |
+| **Verification & Tools** | Pytest, Docker, Git, GitHub Actions |
 
 ---
 
@@ -56,16 +61,21 @@ SentinelAI is an AI-powered copilot that ingests Health and Usage Monitoring Sys
 
 ```
 ├── src/                  # All source code
-├── docs/                 # Written documentation
+│   ├── backend/          # FastAPI application, services, ML registry, database models
+│   ├── frontend/         # React 19 + Vite tactical command console
+│   └── ML/               # Model training scripts, raw telemetry data, and serialized .pkl pipelines
+├── docs/                 # Detailed documentation
 │   ├── problem-statement.md
 │   ├── solution-overview.md
 │   ├── architecture.md
 │   └── setup-guide.md
 ├── demo/                 # Demo artifacts
-│   ├── screenshots/      # App screenshots
-│   └── demo-video-link.txt  # Link to demo video
-├── presentation/         # Slide deck
-└── submission.yaml       # Structured submission metadata
+│   ├── screenshots/      # 7 verified application screenshots
+│   ├── demo-video-link.txt  # Link to demo video
+│   └── live-demo-url.txt    # Link to live deployed application
+├── presentation/         # Slide deck (Slides.pdf)
+├── submission.yaml       # Structured hackathon submission metadata
+└── render.yaml           # Automated cloud deployment blueprint
 ```
 
 ---
@@ -88,10 +98,13 @@ cd ../frontend && npm install
 # 3. Configure environment
 cd ../backend
 cp .env.example .env
-# Edit .env with your values
+# Edit .env with your configuration values (DATABASE_URL, GROQ_API_KEY, ADMIN_EMAIL, etc.)
 alembic upgrade head
 
-# 4. Run the project
+# 4. Seed Telemetry & Fleet Data (Optional)
+python scripts/ingest_test_data.py
+
+# 5. Run the project
 # Terminal 1 (Backend):
 cd src/backend && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 # Terminal 2 (Frontend):
@@ -107,26 +120,26 @@ cd src/frontend && npm run dev
 | 📹 Demo Video | [See demo/demo-video-link.txt](demo/demo-video-link.txt) |
 | 🌐 Live Demo | [See demo/live-demo-url.txt](demo/live-demo-url.txt) |
 | 🖼️ Screenshots | [See demo/screenshots/](demo/screenshots/) |
-| 📊 Presentation | [See presentation/slides.pdf](presentation/) |
+| 📊 Presentation | [See presentation/Slides.pdf](presentation/Slides.pdf) |
 
 ---
 
 ## ⚠️ Known Limitations
 
-- **Single Platform Focus** — Models are currently calibrated for one primary fleet type (tactical aircraft/vehicles). Adding new vehicle or naval classes requires platform-specific retraining.
-- **Simulated Sensor Data** — The prototype runs on simulated and open-source telemetry rather than live classified military feeds.
-- **Wear vs. Combat Damage** — The system detects progressive mechanical wear (vibration spikes, overheating, pressure loss). It cannot predict sudden battle damage or unexpected physical strikes.
-- **Offline Model Updates** — Predictions happen instantly in real time, but model retraining is currently handled offline in batches.
-- **Defense-Specific Copilot** — The AI assistant is strictly scoped to fleet operations, telemetry, and maintenance tasks—not general chat.
+- **Single Platform Calibration** — Predictive models and degradation baselines are currently calibrated for one primary fleet class (tactical aircraft/combat vehicles). Adding distinct maritime or armored platforms requires platform-specific telemetry schemas and retraining.
+- **Simulated HUMS Telemetry** — The platform is demonstrated using simulated and open-source multi-channel sensor feeds rather than live classified military data streams.
+- **Wear Degradation vs. Kinetic Trauma** — The system detects progressive mechanical wear and anomalous telemetry drift (thermal spikes, vibration instability, pressure decay). It does not predict instantaneous kinetic strikes or sudden battle damage.
+- **In-Memory Inference with Batch Retraining** — Production inference runs in real time via an in-memory `ModelRegistry`, but model retraining is executed offline in batch cycles.
+- **Strictly Scoped Defense Copilot** — The AI copilot is strictly bounded to fleet operations, telemetry diagnostics, and maintenance workflows. It deliberately refuses casual out-of-domain queries (e.g., jokes, weather, general trivia) with an explicit platform scope disclaimer.
 
 ---
 
 ## 🏅 What We're Most Proud Of
 
-- **Real End-to-End ML (Zero Mocks)** — Trained and deployed 4 specialized models (failure risk, RUL forecasting, failure modes, anomaly detection) across 20,000+ telemetry records.
-- **Semantic Paraphrase Copilot** — Built an enterprise semantic understanding engine eliminating keyword gates, accurately mapping colloquial questions, defense slang, and coreferences to 15 SentinelAI capabilities.
-- **Mission-First Tactical UI** — Designed an intuitive defense console with ranked attention queues, visual readiness tiers, and real-time telemetry charts.
-- **Closed-Loop Maintenance** — Completing a work order automatically triggers live sensor reassessment to verify that anomalies cleared and update readiness scores.
-- **Production-Grade & 100% Tested** — Built a complete full-stack architecture (React, FastAPI, PostgreSQL, Alembic) verified by 154/154 passing automated paraphrase tests.
+- **Real End-to-End ML (Zero Mocks)** — Trained and deployed 8 component-specific anomaly and failure prediction pipelines (`.pkl` format) with SHAP TreeExplainer feature attributions across 20,000+ telemetry records.
+- **Semantic Paraphrase Copilot** — Engineered a hybrid semantic understanding engine with TF-IDF cosine similarity, handling colloquial phrases, defense terminology (`FMC`, `NMC`, `RUL`), and follow-ups across 15 operational intents.
+- **Mission-First Tactical UI** — Designed a high-contrast defense command console with 7 dedicated operational views, interactive anomaly deviation charts, and drill-down component analysis.
+- **Closed-Loop Maintenance Lifecycle** — Implemented maintenance work order workflows where service completion updates records and reassesses operational readiness.
+- **Cloud-Native & Fully Tested** — Architected for zero-friction cloud deployment on Vercel (Frontend) and Render (Backend) backed by Neon Serverless PostgreSQL, validated by 154/154 passing automated tests.
 
 ---
