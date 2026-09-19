@@ -192,6 +192,81 @@ Open your browser and navigate to:
 
 ---
 
+## Production Deployment Guide
+
+SentinelAI is architected for cloud-native deployment with zero friction:
+
+| Component | Cloud Platform | Live Deployment URL | Deployment Configuration |
+|---|---|---|---|
+| **Frontend Console** | **Vercel** | [https://sentinel-ai-ibm-bob.vercel.app](https://sentinel-ai-ibm-bob.vercel.app) | `src/frontend/vercel.json` |
+| **Backend REST API** | **Render** | [https://bob-ai-hackathon-nexgen.onrender.com](https://bob-ai-hackathon-nexgen.onrender.com) | `render.yaml` / `Procfile` |
+| **Database** | **Neon PostgreSQL** | Serverless Pooled Cluster (Ohio `us-east-2`) | `alembic upgrade head` |
+
+### Pre-Configured Administrator Credentials
+- **Official Email**: `sentinelai712@gmail.com`
+- **Security Password**: `Admin@712`
+- **Pre-computed Hash**: `$2b$12$A0XvgK4RCBVt.FxxPWoSxenOJ2GbEGAwOtJ7pc1pII0AODD4d84KW`
+
+---
+
+### 1. Deploying Backend to Render
+
+SentinelAI includes automated Blueprint specification via `render.yaml`:
+
+#### Option A: 1-Click Blueprint (Recommended)
+1. Log in to [Render Dashboard](https://dashboard.render.com/).
+2. Click **New +** → **Blueprint**.
+3. Connect the repository: `https://github.com/Aayushh910/bob-ai-hackathon-NexGen`.
+4. Render automatically reads `render.yaml` from the root directory and configures:
+   - **Root Directory**: `src/backend`
+   - **Build Command**: `pip install -r requirements.txt && alembic upgrade head`
+   - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2`
+   - **Health Check Path**: `/health`
+5. Fill in the prompted secret values:
+   - `DATABASE_URL`: Your Neon PostgreSQL connection string with `?sslmode=require`.
+   - `GROQ_API_KEY`: Your Groq inference key.
+6. Click **Apply**.
+
+#### Option B: Manual Web Service
+- **Runtime**: Python 3.11+
+- **Root Directory**: `src/backend`
+- **Build Command**: `pip install -r requirements.txt && alembic upgrade head`
+- **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2`
+- **Health Check Path**: `/health`
+- **Environment Variables**:
+  ```ini
+  APP_NAME=SentinelAI
+  APP_ENV=production
+  DEBUG=false
+  DATABASE_URL=postgresql://neondb_owner:YOUR_PASSWORD@ep-xyz-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
+  FRONTEND_URL=https://sentinel-ai-ibm-bob.vercel.app
+  CORS_ORIGINS=http://localhost:3000,http://localhost:5173,https://sentinel-ai-ibm-bob.vercel.app
+  CORS_ORIGIN_REGEX=https://.*\.(vercel\.app|onrender\.com|netlify\.app|pages\.dev)
+  ADMIN_EMAIL=sentinelai712@gmail.com
+  ADMIN_PASSWORD_HASH=$2b$12$A0XvgK4RCBVt.FxxPWoSxenOJ2GbEGAwOtJ7pc1pII0AODD4d84KW
+  JWT_SECRET_KEY=generate_strong_random_secret_with_openssl_rand_hex_32
+  GROQ_API_KEY=your_groq_api_key_here
+  GROQ_MODEL=openai/gpt-oss-120b
+  ```
+
+---
+
+### 2. Deploying Frontend to Vercel
+
+1. Log in to [Vercel Dashboard](https://vercel.com/).
+2. Click **Add New...** → **Project**.
+3. Import the repository `https://github.com/Aayushh910/bob-ai-hackathon-NexGen`.
+4. Configure the Project Settings:
+   - **Framework Preset**: `Vite`
+   - **Root Directory**: Click `Edit` and choose `src/frontend`
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+5. Add Environment Variable:
+   - `VITE_API_BASE_URL`: `https://bob-ai-hackathon-nexgen.onrender.com`
+6. Click **Deploy**. Vercel automatically deploys with SPA rewrites via `src/frontend/vercel.json`.
+
+---
+
 ## Troubleshooting
 
 | Issue | Cause | Solution |
