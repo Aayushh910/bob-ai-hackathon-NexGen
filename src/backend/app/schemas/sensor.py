@@ -1,9 +1,9 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 class SensorReadingBase(BaseModel):
-    asset_id: int = Field(..., description="ID of associated asset")
+    asset_id: Union[str, int] = Field(..., description="ID or code of associated asset (e.g. 'A001')")
     timestamp: datetime = Field(..., description="Timestamp of sensor measurement")
 
     component_id: Optional[str] = Field(None, max_length=50, description="HUMS Component identifier")

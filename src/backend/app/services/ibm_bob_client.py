@@ -33,21 +33,42 @@ CORE PRINCIPLES:
 
 
 class IBMBobClient:
-    """Client for communicating with the IBM Bob AI inference API."""
+    """Client for communicating with Groq / IBM Bob AI inference APIs."""
 
     def __init__(self):
-        self.api_key: Optional[str] = settings.IBM_BOB_API_KEY
-        self.api_url: str = settings.IBM_BOB_API_URL
-        self.model: str = settings.IBM_BOB_MODEL
-        self.timeout: int = settings.IBM_BOB_TIMEOUT_SECONDS
+        self._refresh_config()
+
+    def _refresh_config(self):
+        # Check Groq configuration first
+        groq_key = (settings.GROQ_API_KEY or "").strip()
+        bob_key = (settings.IBM_BOB_API_KEY or "").strip()
+
+        if groq_key and groq_key not in ("your_groq_api_key_here", "placeholder", "none"):
+            self.provider = "Groq"
+            self.api_key = groq_key
+            self.api_url = settings.GROQ_API_URL or "https://api.groq.com/openai/v1/chat/completions"
+            self.model = settings.GROQ_MODEL or "llama-3.3-70b-versatile"
+        elif bob_key and bob_key.startswith("gsk_"):
+            self.provider = "Groq"
+            self.api_key = bob_key
+            self.api_url = "https://api.groq.com/openai/v1/chat/completions"
+            self.model = getattr(settings, "GROQ_MODEL", "llama-3.3-70b-versatile")
+        else:
+            self.provider = "IBM Bob"
+            self.api_key = bob_key
+            self.api_url = settings.IBM_BOB_API_URL
+            self.model = settings.IBM_BOB_MODEL
+
+        self.timeout: int = getattr(settings, "IBM_BOB_TIMEOUT_SECONDS", 10)
 
     @property
     def is_configured(self) -> bool:
-        """Check if IBM Bob API credentials are configured."""
+        """Check if Groq or IBM Bob API credentials are configured."""
+        self._refresh_config()
         if not self.api_key:
             return False
         clean = self.api_key.strip()
-        if not clean or clean in ("your_ibm_bob_api_key_here", "placeholder", "your_key_here", "none"):
+        if not clean or clean in ("your_ibm_bob_api_key_here", "your_groq_api_key_here", "placeholder", "your_key_here", "none"):
             return False
         return True
 
@@ -59,11 +80,12 @@ class IBMBobClient:
         system_prompt: Optional[str] = None,
     ) -> Optional[str]:
         """
-        Sends query and retrieved database context to IBM Bob API.
+        Sends query and retrieved database context to Groq / IBM Bob API.
         Returns the generated Markdown text response, or None on failure/unconfigured.
         """
+        self._refresh_config()
         if not self.is_configured:
-            logger.info("IBM Bob API key is not configured. Using grounded deterministic engine.")
+            logger.info("LLM API key is not configured. Using grounded deterministic engine.")
             return None
 
         # Build prompt payload
@@ -124,3 +146,4 @@ class IBMBobClient:
 
 
 ibm_bob_client = IBMBobClient()
+llm_client = ibm_bob_client

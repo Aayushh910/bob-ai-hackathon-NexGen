@@ -461,3 +461,4 @@ class TelemetryIngestionPipeline:
                 db.close()
 
 ingestion_pipeline = TelemetryIngestionPipeline()
+ingestion_service = ingestion_pipeline

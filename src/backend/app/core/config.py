@@ -56,11 +56,16 @@ class Settings(BaseSettings):
     SESSION_COOKIE_SAMESITE: str = "lax"
     SESSION_EXPIRE_MINUTES: int = 1440
 
+    # Groq API Configuration (Fast Inference Provider)
+    GROQ_API_KEY: Optional[str] = None
+    GROQ_API_URL: str = "https://api.groq.com/openai/v1/chat/completions"
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
+
     # IBM Bob API Configuration (Server-Side Only)
     IBM_BOB_API_KEY: Optional[str] = None
     IBM_BOB_API_URL: str = "https://api.us-east.bob.ibm.com/inference/v1/chat/completions"
     IBM_BOB_MODEL: str = "ibm/granite-3-8b-instruct"
-    IBM_BOB_TIMEOUT_SECONDS: int = 5
+    IBM_BOB_TIMEOUT_SECONDS: int = 10
 
     @computed_field
     @property

@@ -1,6 +1,6 @@
 from sqlalchemy import Column, BigInteger, String, DateTime
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, synonym
 from app.core.database import Base
 
 class Asset(Base):
@@ -8,6 +8,7 @@ class Asset(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
     asset_id = Column(String(50), unique=True, nullable=False, index=True)
+    asset_code = synonym("asset_id")
     asset_name = Column(String(100), nullable=True)
     asset_type = Column(String(50), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

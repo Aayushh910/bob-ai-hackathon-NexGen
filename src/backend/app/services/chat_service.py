@@ -26,6 +26,7 @@ from app.models.maintenance import MaintenanceRecord
 from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse, NavigationAction
 from app.services.ibm_bob_client import ibm_bob_client
 from app.services.troubleshooting_engine import troubleshooting_engine
+from app.services.semantic_intent import semantic_understanding_engine
 
 logger = logging.getLogger("sentinelai.chat_service")
 
@@ -109,144 +110,22 @@ class ChatService:
 
     def extract_all_asset_codes(self, text_str: str) -> List[str]:
         """
-        Extracts all asset identifiers from text (e.g. A001, A021, A102, A999999, Asset-21).
-        Supports comparisons where two assets are mentioned (e.g. 'Compare A021 and A035').
+        Extracts all asset identifiers from text (e.g. A001, A021, A102, platform A021, unit 21).
+        Supports comparisons where two or more assets are mentioned (e.g. 'Compare A021 and A035').
         """
         if not text_str:
             return []
-
-        codes: List[str] = []
-
-        # Pattern 1: Standard 'A' followed by 1 to 6 digits (e.g. A021, A102, A999999)
-        matches1 = re.findall(r"\b([aA]\d{1,6})\b", text_str)
-        for m in matches1:
-            code = m.upper()
-            if code not in codes:
-                codes.append(code)
-
-        # Pattern 2: "asset #5", "asset-102", "machine A021", "the A102 machine"
-        matches2 = re.findall(r"\b(?:asset|machine)[-_\s#]*([aA]?\d{1,6})\b", text_str, re.IGNORECASE)
-        for m in matches2:
-            raw = m.upper()
-            if not raw.startswith("A"):
-                num = int(raw)
-                code = f"A{num:03d}"
-            else:
-                code = raw
-            if code not in codes:
-                codes.append(code)
-
+        _, codes = semantic_understanding_engine.extract_asset_entities(text_str, history=None)
         return codes
 
     def resolve_asset_entities(self, message: str, history: List[ChatMessage]) -> Tuple[Optional[str], List[str]]:
         """
-        Extracts asset codes from the current message.
-        If no asset is mentioned in the current query, resolves from history:
-        1. Ordinal references: 'first one' -> 1st asset from previous answer, 'second one' -> 2nd, etc.
-        2. Plural references: 'they', 'them', 'these', 'those', 'all of them' -> all assets from previous answer.
-        3. Pronouns & referential markers: 'it', 'its', 'that asset', 'this machine', 'that', 'this', etc.
-        4. Contextual follow-up queries: e.g. 'Why?', 'Sensors', 'How to fix?', 'Troubleshoot', 'What is the temperature?',
-           'Is it getting worse?', 'Tell me more', 'Explain' -> seamlessly inherits the active asset.
-        5. Does NOT inherit if the user explicitly switches scope (e.g. 'Show all assets', 'What is SentinelAI', 'Where can I see reports').
+        Extracts asset codes from the current message, resolving referential markers,
+        ordinals, pronouns, and conversational follow-ups from history when needed.
         """
-        direct_codes = self.extract_all_asset_codes(message)
-        if direct_codes:
-            return direct_codes[0], direct_codes
-
-        if not history:
-            return None, []
-
-        q = message.lower().strip()
-
-        # Scope reset check: Does the user explicitly want a fleet-wide or conceptual query?
-        scope_reset_keywords = [
-            "all assets", "show assets", "list assets", "fleet inventory", "all machines", "every asset",
-            "fleet readiness", "fleet status", "how many ready", "readiness count", "overall status",
-            "what is sentinelai", "how does sentinelai work", "what ml models", "explain readiness",
-            "where can i download reports", "where are reports", "system settings", "open settings"
-        ]
-        if any(sr in q for sr in scope_reset_keywords):
-            return None, []
-
-        # Find the last assistant message and all previous codes mentioned in recent history
-        last_assistant_turn = None
-        for turn in reversed(history):
-            if turn.role == "assistant":
-                last_assistant_turn = turn
-                break
-
-        prev_assistant_codes = self.extract_all_asset_codes(last_assistant_turn.content) if last_assistant_turn else []
-
-        # Also get all codes mentioned anywhere in the last 4 turns (user or assistant)
-        all_recent_codes = []
-        for turn in reversed(history[-4:]):
-            for c in self.extract_all_asset_codes(turn.content):
-                if c not in all_recent_codes:
-                    all_recent_codes.append(c)
-
-        # 1. Check for ordinal references
-        if any(w in q for w in ["first one", "1st one", "first asset", "first machine", "the first", "first unit"]):
-            if prev_assistant_codes:
-                return prev_assistant_codes[0], [prev_assistant_codes[0]]
-            if all_recent_codes:
-                return all_recent_codes[0], [all_recent_codes[0]]
-
-        if any(w in q for w in ["second one", "2nd one", "second asset", "second machine", "the second", "second unit"]):
-            if len(prev_assistant_codes) >= 2:
-                return prev_assistant_codes[1], [prev_assistant_codes[1]]
-            if len(all_recent_codes) >= 2:
-                return all_recent_codes[1], [all_recent_codes[1]]
-
-        if any(w in q for w in ["third one", "3rd one", "third asset", "third machine", "the third", "third unit"]):
-            if len(prev_assistant_codes) >= 3:
-                return prev_assistant_codes[2], [prev_assistant_codes[2]]
-            if len(all_recent_codes) >= 3:
-                return all_recent_codes[2], [all_recent_codes[2]]
-
-        if any(w in q for w in ["last one", "last asset", "last machine", "the last"]):
-            if prev_assistant_codes:
-                return prev_assistant_codes[-1], [prev_assistant_codes[-1]]
-            if all_recent_codes:
-                return all_recent_codes[-1], [all_recent_codes[-1]]
-
-        # 2. Check for plural references
-        if any(w in q.split() for w in ["they", "them", "these", "those"]) or "all of them" in q or "both of them" in q or "why are they" in q:
-            if prev_assistant_codes:
-                return prev_assistant_codes[0], prev_assistant_codes
-            if all_recent_codes:
-                return all_recent_codes[0], all_recent_codes
-
-        # 3. Check for pronoun and referential markers
-        referential_markers = [
-            "it", "its", "that asset", "this asset", "the asset", "that machine", "this machine",
-            "the machine", "that vehicle", "this vehicle", "the platform", "grounded unit",
-            "the same one", "same asset", "what should i do", "how to fix it", "why is it",
-            "about that", "about it", "that one", "this one", "that", "this"
-        ]
-        tokens = set(re.findall(r"\b\w+\b", q))
-        has_referential_marker = any(marker in q for marker in referential_markers) or bool(tokens.intersection({"it", "its", "that", "this"}))
-
-        # 4. Contextual follow-up markers without entity (e.g. 'why?', 'sensors', 'troubleshoot', 'temperature', 'how to fix')
-        followup_intent_markers = [
-            "why", "why?", "how to fix", "troubleshoot", "what to do", "what checks", "what action",
-            "recommended checks", "diagnostic", "diagnostics", "sensors", "sensor readings",
-            "telemetry", "readings", "temperature", "vibration", "pressure", "rpm", "voltage",
-            "maintenance", "repairs", "maintenance history", "history", "trend", "getting worse",
-            "getting better", "deteriorating", "improving", "what happened", "what is wrong",
-            "what's wrong", "what broke", "is it at risk", "tell me more", "explain", "explain more",
-            "elaborate", "details", "what does that mean", "what does this mean", "status", "health",
-            "dossier", "anomaly", "anomalies"
-        ]
-        has_followup_intent = any(marker in q for marker in followup_intent_markers)
-
-        if (has_referential_marker or has_followup_intent) and all_recent_codes:
-            for turn in reversed(history):
-                prev_codes = self.extract_all_asset_codes(turn.content)
-                if prev_codes:
-                    return prev_codes[0], prev_codes
-
-            return all_recent_codes[0], all_recent_codes
-
+        primary, all_codes = semantic_understanding_engine.extract_asset_entities(message, history=history)
+        if primary:
+            return primary, all_codes
         return None, []
 
     # ------------------ Intent Understanding & Normalization ------------------
@@ -427,7 +306,28 @@ class ChatService:
         if any(w in q for w in ["all assets", "show assets", "list assets", "fleet inventory", "all machines", "every asset"]):
             return "data", "ALL_ASSETS_SUMMARY", 0.92
 
-        # 15. General / Non-Project questions
+        # 15. Semantic Intelligence Integration for Paraphrases, Informal Queries, and Synonyms
+        sem_intent, sem_conf, _ = semantic_understanding_engine.classify_intent_semantic(message, history=history)
+        if sem_intent == "FLEET_STATUS":
+            if any(w in q for w in ["how many", "count", "number of", "rate"]):
+                return "data", "READY_COUNTS", max(sem_conf, 0.95)
+            return "data", "FLEET_STATUS", max(sem_conf, 0.95)
+        elif sem_intent == "NOT_READY_ASSETS":
+            return "data", "DEGRADED_ASSETS", max(sem_conf, 0.95)
+        elif sem_intent in ("CRITICAL_ASSETS", "INTERVENTIONS"):
+            return "data", "CRITICAL_ALERTS", max(sem_conf, 0.95)
+        elif sem_intent in ("FAILURE_RISK", "LOW_RUL"):
+            return "data", "HIGHEST_FAILURE_RISK", max(sem_conf, 0.95)
+        elif sem_intent == "ANOMALIES":
+            return "data", "RECENT_ANOMALIES", max(sem_conf, 0.95)
+        elif sem_intent == "ASSET_EXPLANATION" and asset_code:
+            return "data", "TROUBLESHOOT_ASSET", max(sem_conf, 0.95)
+        elif sem_intent == "ASSET_MAINTENANCE" and asset_code:
+            return "data", "ASSET_MAINTENANCE", max(sem_conf, 0.95)
+        elif sem_intent == "ASSET_STATUS" and asset_code:
+            return "data", "ASSET_OVERVIEW", max(sem_conf, 0.95)
+
+        # 16. General / Non-Project questions
         return "general", "GENERAL_CONVERSATION", 0.85
 
     # ------------------ Controlled Backend Database Operations ------------------
