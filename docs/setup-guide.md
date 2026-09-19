@@ -7,8 +7,8 @@
 Before you begin, ensure you have the following installed on your system:
 
 - [x] **Python 3.11+** (Python 3.11 or 3.12 recommended; includes `pip` and `venv`)
-- [x] **Node.js 18+ & npm 9+** (Node.js 20 LTS recommended for Vite 6/React 19)
-- [x] **PostgreSQL 14+** (Local service running on port `5432` or via Docker container)
+- [x] **Node.js 18+ & npm 9+** (Node.js 20 LTS recommended for Vite 8/React 19)
+- [x] **PostgreSQL 14+ or Neon Serverless PostgreSQL** (Local service on `5432` or remote pooled connection string)
 - [x] **Git** (Command-line Git client)
 
 > 💡 **Tip (Docker for PostgreSQL):** If you do not have PostgreSQL installed locally, you can start a PostgreSQL 14 instance in one command:
@@ -35,18 +35,39 @@ cp src/backend/.env.example src/backend/.env
 | Variable | Description | Default / Example Value | Required |
 |---|---|---|:---:|
 | `APP_NAME` | Name of the application | `SentinelAI` | Yes |
-| `APP_ENV` | Application runtime environment | `development` | Yes |
+| `APP_ENV` | Runtime environment (`development` / `production`) | `development` | Yes |
 | `DEBUG` | Enable FastAPI debug mode | `True` | Yes |
-| `DATABASE_HOST` | PostgreSQL host address | `localhost` | Yes |
-| `DATABASE_PORT` | PostgreSQL listening port | `5432` | Yes |
-| `DATABASE_NAME` | PostgreSQL database name | `SentinelAI` | Yes |
-| `DATABASE_USER` | PostgreSQL user | `postgres` | Yes |
-| `DATABASE_PASSWORD` | PostgreSQL user password | `postgres` (or your password) | Yes |
+| `PORT` | Listening port for web server | `8000` | Yes |
+| `DATABASE_URL` | Complete PostgreSQL / Neon pooled connection string | `postgresql://user:password@host/db?sslmode=require` | Optional (Overrides host/port) |
+| `DATABASE_HOST` | PostgreSQL host address | `localhost` | If `DATABASE_URL` not set |
+| `DATABASE_PORT` | PostgreSQL listening port | `5432` | If `DATABASE_URL` not set |
+| `DATABASE_NAME` | PostgreSQL database name | `SentinelAI` | If `DATABASE_URL` not set |
+| `DATABASE_USER` | PostgreSQL user | `postgres` | If `DATABASE_URL` not set |
+| `DATABASE_PASSWORD` | PostgreSQL user password | `<your-database-password>` | If `DATABASE_URL` not set |
 | `FRONTEND_URL` | Allowed CORS origin for frontend | `http://localhost:5173` | Yes |
-| `API_PREFIX` | Versioned REST API route prefix | `/api/v1` | Yes |
-| `JWT_SECRET_KEY` | Secret key used for JWT signing | `your_jwt_secret_key_here` | Yes |
-| `JWT_ALGORITHM` | Encryption algorithm for token encoding | `HS256` | Yes |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Token expiration duration | `1440` (24 hours) | Yes |
+| `CORS_ORIGINS` | Comma-separated list of allowed CORS origins | `http://localhost:5173,http://localhost:3000` | Yes |
+| `CORS_ORIGIN_REGEX` | Regular expression pattern for dynamic cloud origins | `https://.*\\.(vercel\\.app\|onrender\\.com)` | Yes |
+| `ADMIN_EMAIL` | Single administrator login email | `sentinelai712@gmail.com` | Yes |
+| `ADMIN_PASSWORD_HASH` | Bcrypt password hash for administrator | `<bcrypt-hash>` | Yes |
+| `SESSION_COOKIE_NAME` | Session cookie identifier | `sentinel_session` | Yes |
+| `SESSION_COOKIE_SECURE` | HTTPS-only cookie enforcement | `False` (in dev) / `True` (in prod) | Yes |
+| `SESSION_COOKIE_SAMESITE` | SameSite cookie policy | `lax` | Yes |
+| `SESSION_EXPIRE_MINUTES` | Web session lifetime | `1440` (24 hours) | Yes |
+| `JWT_SECRET_KEY` | Secret key used for signing JWT tokens | `<strong-random-secret>` | Yes |
+| `JWT_ALGORITHM` | Encryption algorithm for JWT tokens | `HS256` | Yes |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token expiration duration | `1440` (24 hours) | Yes |
+| `GROQ_API_KEY` | Fast LLM inference key from Groq | `<your-groq-api-key>` | Optional |
+| `GROQ_API_URL` | OpenAI-compatible completion endpoint | `https://api.groq.com/openai/v1/chat/completions` | Optional |
+| `GROQ_MODEL` | Groq cloud LLM model identifier | `openai/gpt-oss-120b` | Optional |
+| `IBM_BOB_API_KEY` | IBM Bob / Granite API Key | `<your-ibm-bob-key>` | Optional |
+| `IBM_BOB_API_URL` | IBM Bob completion endpoint | `https://api.us-east.bob.ibm.com/inference/v1/chat/completions` | Optional |
+| `IBM_BOB_MODEL` | IBM Bob LLM model identifier | `ibm/granite-3-8b-instruct` | Optional |
+| `SMTP_HOST` | Primary SMTP host for notifications | `smtp.gmail.com` | Optional |
+| `SMTP_PORT` | SMTP port with TLS | `587` | Optional |
+| `SMTP_USER` | Authenticated SMTP sender account | `sentinelai712@gmail.com` | Optional |
+| `SMTP_PASS` | Secure application password | `<smtp-app-password>` | Optional |
+| `BREVIS_API_KEY` | Brevo API key for secondary fallback | `<brevo-api-key>` | Optional |
+| `BREVIS_API_URL` | Brevo transactional email endpoint | `https://api.brevo.com/v3/smtp/email` | Optional |
 
 ### 2. Frontend Environment Configuration
 
@@ -60,9 +81,9 @@ cp src/frontend/.env.example src/frontend/.env
 
 | Variable | Description | Default / Example Value | Required |
 |---|---|---|:---:|
-| `VITE_API_BASE_URL` | Target FastAPI backend URL | `http://localhost:8000` | Yes |
+| `VITE_API_BASE_URL` | Target FastAPI backend URL | `http://localhost:8000` (or cloud URL) | Yes |
 | `VITE_APP_TITLE` | Application title display | `SentinelAI` | Yes |
-| `VITE_APP_ENV` | Frontend runtime environment | `development` | Yes |
+| `VITE_APP_ENV` | Frontend runtime environment | `development` / `production` | Yes |
 
 ---
 
@@ -100,7 +121,7 @@ cd ../backend
 alembic upgrade head
 
 # 5. Ingest Telemetry Dataset (20,000+ sensor records across 50 assets)
-python scripts/ingest_csv.py
+python scripts/ingest_test_data.py
 ```
 
 ---
@@ -118,7 +139,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 The backend REST API and automated interactive documentation will be available at:
-- **API Health Check**: `http://localhost:8000/api/v1/health`
+- **API Health Check**: `http://localhost:8000/api/v1/health` (and `http://localhost:8000/health`)
 - **Swagger UI Interactive Docs**: `http://localhost:8000/docs`
 - **ReDoc Documentation**: `http://localhost:8000/redoc`
 
@@ -136,7 +157,7 @@ The application frontend will be available at: `http://localhost:5173`
 
 ## Running Tests
 
-SentinelAI comes with an automated test suite verifying data validation, ML inference, readiness scoring, and API endpoints (45/45 passing tests).
+SentinelAI includes an automated test suite verifying data validation, ML inference, readiness scoring, and natural-language paraphrase routing (154/154 passing tests).
 
 ### Automated Backend & Integration Tests
 
@@ -146,18 +167,33 @@ From the `src/backend` directory with your virtual environment activated:
 pytest tests/ -v
 ```
 
-To run with full output and timing:
+To run the semantic paraphrase copilot suite specifically:
 
 ```bash
-pytest tests/ -v --tb=short
+pytest tests/test_copilot_paraphrase.py -v
 ```
 
-### Machine Learning Model Evaluation
+### Script Verification
 
-To run test-set evaluation across all 4 production models (Failure Probability, RUL, Failure Mode, and Anomaly Detection):
+To verify database seeding, chat processing, and authentication flows directly:
 
 ```bash
-python src/ML/evaluate.py
+# Verify database connection and tables
+python scripts/validate_database.py
+
+# Run automated chat inquest test suite
+python scripts/test_chat_suite.py
+
+# Verify authentication and session validation
+python scripts/verify_auth_system.py
+```
+
+### Frontend Production Build Verification
+
+From the `src/frontend` directory:
+
+```bash
+npm run build
 ```
 
 ---
@@ -169,26 +205,21 @@ To quickly showcase SentinelAI's capabilities end-to-end:
 ### 1. Ingest Sensor Data & Seed Fleet Registry
 ```bash
 # From src/backend:
-python scripts/ingest_csv.py
+python scripts/ingest_test_data.py
 ```
-This populates PostgreSQL with 50 military fleet assets and 20,000+ multi-sensor telemetry readings.
+This populates PostgreSQL with 50 military fleet assets, component records, and 20,000+ multi-sensor telemetry readings.
 
-### 2. Run Sample In-Memory ML Inference
-```bash
-# From repo root:
-python src/ML/predict.py
-```
-Outputs immediate multi-model predictions (failure likelihood, estimated RUL hours, diagnosed failure mode) for sample flight telemetry.
-
-### 3. Open the Interactive Command Interface
+### 2. Open the Interactive Command Interface
 Open your browser and navigate to:
-- **Command Console Dashboard**: `http://localhost:5173`
-  - View real-time 4-tier readiness matrix (`READY`, `CAUTION`, `DEGRADED`, `NOT_READY`).
-  - Inspect fleet health KPI cards and sensor telemetry charts.
-  - Interact with the evidence-grounded Operational Copilot.
+- **Command Console**: `http://localhost:5173`
+  - Sign in using the pre-configured administrator account (`sentinelai712@gmail.com`).
+  - View real-time readiness breakdown (`READY`, `ATTENTION`, `NOT_READY`).
+  - Inspect fleet health KPI cards, component-level SHAP attributions, and sensor telemetry charts.
+  - Interact with the evidence-grounded Operational Copilot (supporting 15 operational intent categories).
+  - Export filtered CSV datasets and printable tactical PDF reports.
 - **Interactive REST Swagger**: `http://localhost:8000/docs`
-  - Test `/api/v1/readiness` to see real-time readiness scoring.
-  - Test `/api/v1/copilot/query` to ask mission-readiness questions.
+  - Test `/api/v1/dashboard/summary` to view aggregate fleet status.
+  - Test `/api/v1/copilot/query` to execute operational command inquests.
 
 ---
 
@@ -199,13 +230,13 @@ SentinelAI is architected for cloud-native deployment with zero friction:
 | Component | Cloud Platform | Live Deployment URL | Deployment Configuration |
 |---|---|---|---|
 | **Frontend Console** | **Vercel** | [https://sentinel-ai-ibm-bob.vercel.app](https://sentinel-ai-ibm-bob.vercel.app) | `src/frontend/vercel.json` |
-| **Backend REST API** | **Render** | [https://bob-ai-hackathon-nexgen.onrender.com](https://bob-ai-hackathon-nexgen.onrender.com) | `render.yaml` / `Procfile` |
+| **Backend REST API** | **Render** | [https://bob-ai-hackathon-nexgen.onrender.com](https://bob-ai-hackathon-nexgen.onrender.com) | `render.yaml` / `src/backend/render.yaml` |
 | **Database** | **Neon PostgreSQL** | Serverless Pooled Cluster (Ohio `us-east-2`) | `alembic upgrade head` |
 
-### Pre-Configured Administrator Credentials
-- **Official Email**: `sentinelai712@gmail.com`
-- **Security Password**: `Admin@712`
-- **Pre-computed Hash**: `$2b$12$A0XvgK4RCBVt.FxxPWoSxenOJ2GbEGAwOtJ7pc1pII0AODD4d84KW`
+### Administrator Credentials Setup
+- The application uses a single administrator role configured on the server via `ADMIN_EMAIL` and `ADMIN_PASSWORD_HASH`.
+- Passwords are encrypted using bcrypt with salt rounds of 12.
+- Session tokens are signed using HS256 JWT and transmitted via secure HTTP-Only cookies (`sentinel_session`) and `Authorization: Bearer <token>` headers.
 
 ---
 
@@ -222,7 +253,7 @@ SentinelAI includes automated Blueprint specification via `render.yaml`:
    - **Build Command**: `pip install -r requirements.txt && alembic upgrade head`
    - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2`
    - **Health Check Path**: `/health`
-5. Fill in the prompted secret values:
+5. Fill in the prompted environment values:
    - `DATABASE_URL`: Your Neon PostgreSQL connection string with `?sslmode=require`.
    - `GROQ_API_KEY`: Your Groq inference key.
 6. Click **Apply**.
@@ -238,14 +269,14 @@ SentinelAI includes automated Blueprint specification via `render.yaml`:
   APP_NAME=SentinelAI
   APP_ENV=production
   DEBUG=false
-  DATABASE_URL=postgresql://neondb_owner:YOUR_PASSWORD@ep-xyz-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
+  DATABASE_URL=postgresql://user:password@ep-xyz-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
   FRONTEND_URL=https://sentinel-ai-ibm-bob.vercel.app
   CORS_ORIGINS=http://localhost:3000,http://localhost:5173,https://sentinel-ai-ibm-bob.vercel.app
   CORS_ORIGIN_REGEX=https://.*\.(vercel\.app|onrender\.com|netlify\.app|pages\.dev)
   ADMIN_EMAIL=sentinelai712@gmail.com
-  ADMIN_PASSWORD_HASH=$2b$12$A0XvgK4RCBVt.FxxPWoSxenOJ2GbEGAwOtJ7pc1pII0AODD4d84KW
-  JWT_SECRET_KEY=generate_strong_random_secret_with_openssl_rand_hex_32
-  GROQ_API_KEY=your_groq_api_key_here
+  ADMIN_PASSWORD_HASH=<your-bcrypt-password-hash>
+  JWT_SECRET_KEY=<generate-strong-random-secret>
+  GROQ_API_KEY=<your-groq-api-key>
   GROQ_MODEL=openai/gpt-oss-120b
   ```
 
@@ -278,4 +309,5 @@ SentinelAI includes automated Blueprint specification via `render.yaml`:
 | `CORS Error in Browser Console` | Backend does not allow the frontend origin | Check `FRONTEND_URL=http://localhost:5173` in `src/backend/.env` and restart the backend. |
 | `Port 8000 or 5173 already in use` | Another process is holding the port | Terminate the occupying process or specify an alternate port: `uvicorn app.main:app --port 8001` (update `VITE_API_BASE_URL` in `src/frontend/.env` accordingly). |
 | `npm ERR! code ERESOLVE` | Node/npm dependency resolution conflict | Run `npm install --legacy-peer-deps` inside `src/frontend`. |
-| `FileNotFoundError: Model artifact not found` | Models have not been trained or moved | Production models are pre-bundled under `src/ML/Models/`. You can also retrain them at any time with `python src/ML/train.py`. |
+| `FileNotFoundError: Model artifact not found` | Models have not been trained or moved | Production models are pre-bundled under `src/ML/model/` as serialized `.pkl` pipeline files. |
+
