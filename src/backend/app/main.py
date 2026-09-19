@@ -56,12 +56,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Security Headers Middleware
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 # Mount API v1 Routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-# Also mount /api/chat directly for standard root API routing
-from app.api.v1.endpoints import chat
-app.include_router(chat.router, prefix="/api/chat", tags=["SentinelAI Chatbot"])
+# Also mount /api/auth and /api/chat directly for standard root API routing
+from app.api.v1.endpoints import auth, chat
+from app.core.security import get_current_admin
+from fastapi import Depends
+
+app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(
+    chat.router,
+    prefix="/api/chat",
+    tags=["SentinelAI Chatbot"],
+    dependencies=[Depends(get_current_admin)]
+)
 
 @app.api_route(
     "/",
