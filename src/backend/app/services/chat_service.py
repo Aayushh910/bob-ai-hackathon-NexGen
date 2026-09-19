@@ -327,8 +327,30 @@ class ChatService:
         elif sem_intent == "ASSET_STATUS" and asset_code:
             return "data", "ASSET_OVERVIEW", max(sem_conf, 0.95)
 
-        # 16. General / Non-Project questions
-        return "general", "GENERAL_CONVERSATION", 0.85
+        # 16. Polite Greetings & Introductions
+        clean_q = re.sub(r"[^\w\s]", "", q).strip()
+        greetings = {"hello", "hi", "hey", "greetings", "good morning", "good afternoon", "good evening", "howdy"}
+        if clean_q in greetings or any(clean_q.startswith(g + " ") for g in greetings):
+            return "general", "GREETING", 0.98
+
+        # 17. Out-of-Domain & Unrelated queries (jokes, weather, general trivia, casual queries)
+        out_of_domain_words = [
+            "joke", "jokes", "funny", "laugh", "humor", "riddle",
+            "weather", "forecast", "rain", "sunny", "temperature in", "temperature outside",
+            "recipe", "recipes", "cook", "bake", "cake", "food", "pizza", "burger", "coffee",
+            "movie", "movies", "film", "song", "music", "actor", "actress", "poem", "story", "book",
+            "sports", "cricket", "football", "world cup", "match score", "game score",
+            "who won", "president of", "prime minister", "capital of", "currency of",
+            "write a poem", "write a story", "python code", "solve math", "calculator", "game"
+        ]
+        if any(w in q for w in out_of_domain_words):
+            return "general", "OUT_OF_DOMAIN", 0.99
+
+        if sem_intent == "UNKNOWN":
+            return "general", "OUT_OF_DOMAIN", 0.95
+
+        # 18. Default fallback for unmapped non-project questions
+        return "general", "OUT_OF_DOMAIN", 0.85
 
     # ------------------ Controlled Backend Database Operations ------------------
 
@@ -1107,6 +1129,22 @@ class ChatService:
                 "Which asset has highest failure risk?",
             ]
 
+        if intent in ("OUT_OF_DOMAIN", "UNKNOWN"):
+            return [
+                "What is our current fleet readiness?",
+                "Which assets are NOT mission-ready?",
+                "Why is asset A021 down?",
+                "Show recent sensor anomalies",
+            ]
+
+        if intent == "GREETING":
+            return [
+                "What is our current fleet readiness?",
+                "Which assets are degraded?",
+                "Which asset has highest failure risk?",
+                "Where can I see predictions?",
+            ]
+
         # Default initial / general suggestions
         return [
             "Which assets are degraded?",
@@ -1147,6 +1185,7 @@ class ChatService:
         result_status = "FOUND"
         retrieved_context = ""
         sources: List[str] = []
+        formatted_message: Optional[str] = None
 
         try:
             # 3. Handle Navigation queries
@@ -1273,16 +1312,63 @@ class ChatService:
                 if response_type == "mixed" and not nav_action:
                     nav_action = NAVIGATION_MAP["fleet"]
 
-            # 6. Handle General conversation / Conversational follow-up
+            # 6. Handle General conversation / Conversational follow-up / Out-of-Domain queries
             elif response_type == "general":
-                if request.history:
+                if sub_intent == "GREETING":
+                    formatted_message = (
+                        "### 🛡️ SentinelAI Operational Copilot\n\n"
+                        "Greetings! I am **SentinelAI**, an operational AI assistant dedicated **exclusively** to the "
+                        "**SentinelAI Defense Mission Readiness and Predictive Maintenance Platform**.\n\n"
+                        "I monitor 50 tactical platforms (`A001` through `A050`), analyzing real-time telemetry, "
+                        "predicting component failures up to 50 hours in advance, and calculating mission readiness tiers.\n\n"
+                        "**Operational Capabilities:**\n"
+                        "- 📊 **Fleet Readiness:** *\"What is our current fleet readiness?\"* or *\"How many assets are ready?\"*\n"
+                        "- 🔍 **Asset Diagnostics:** *\"Why is A021 down?\"* or *\"Check asset A003\"*\n"
+                        "- ⚠️ **Failure Predictions:** *\"Which assets have highest failure risk?\"*\n"
+                        "- 📈 **Sensor Anomalies:** *\"Show recent telemetry anomalies\"*\n"
+                        "- 🔧 **Maintenance Planning:** *\"Which assets are overdue for maintenance?\"*\n"
+                        "- 🗺️ **Platform Navigation:** *\"Where can I view sensor trends?\"*\n\n"
+                        "How can I assist your fleet command operations today?"
+                    )
+                    result_status = "FOUND"
+                elif request.history:
+                    # Check if conversational follow-up resolves to platform context from previous turns
                     data_payload, retrieved_context, result_status = self._handle_conversational_followup(db, message, request.history, primary_asset_code)
+                    if not retrieved_context:
+                        # History did not resolve to platform data -> Return Scope Disclaimer
+                        formatted_message = (
+                            "### ⚠️ SentinelAI Operational Scope Notice\n\n"
+                            "I am **SentinelAI**, an operational AI copilot dedicated **exclusively** to the "
+                            "**SentinelAI Defense Mission Readiness & Predictive Maintenance Platform**.\n\n"
+                            "I cannot answer general knowledge, jokes, weather forecasts, entertainment, or queries unrelated to this platform.\n\n"
+                            "**Please ask platform-related queries such as:**\n"
+                            "- 📊 **Fleet Readiness:** *\"What is our current fleet readiness?\"* or *\"How many assets are ready?\"*\n"
+                            "- 🔍 **Asset Diagnostics:** *\"Why is A021 down?\"* or *\"Diagnose platform A003\"*\n"
+                            "- ⚠️ **Failure Risks:** *\"Which assets have highest failure risk?\"*\n"
+                            "- 📈 **Telemetry Anomalies:** *\"Are there any active sensor anomalies?\"*\n"
+                            "- 🔧 **Maintenance Schedules:** *\"Which assets are overdue for maintenance?\"*\n"
+                            "- 🗺️ **Platform Navigation:** *\"Where can I inspect prediction models?\"*"
+                        )
+                        result_status = "OUT_OF_DOMAIN"
                 else:
-                    retrieved_context = ""
+                    # Direct out-of-domain / unrelated inquiry -> Instant Scope Disclaimer
+                    formatted_message = (
+                        "### ⚠️ SentinelAI Operational Scope Notice\n\n"
+                        "I am **SentinelAI**, an operational AI copilot dedicated **exclusively** to the "
+                        "**SentinelAI Defense Mission Readiness & Predictive Maintenance Platform**.\n\n"
+                        "I cannot answer general knowledge, jokes, weather forecasts, entertainment, or queries unrelated to this platform.\n\n"
+                        "**Please ask platform-related queries such as:**\n"
+                        "- 📊 **Fleet Readiness:** *\"What is our current fleet readiness?\"* or *\"How many assets are ready?\"*\n"
+                        "- 🔍 **Asset Diagnostics:** *\"Why is A021 down?\"* or *\"Diagnose platform A003\"*\n"
+                        "- ⚠️ **Failure Risks:** *\"Which assets have highest failure risk?\"*\n"
+                        "- 📈 **Telemetry Anomalies:** *\"Are there any active sensor anomalies?\"*\n"
+                        "- 🔧 **Maintenance Schedules:** *\"Which assets are overdue for maintenance?\"*\n"
+                        "- 🗺️ **Platform Navigation:** *\"Where can I inspect prediction models?\"*"
+                    )
+                    result_status = "OUT_OF_DOMAIN"
 
-            # 7. Response Synthesis via IBM Bob API (when configured and not an explicit NOT_FOUND)
-            formatted_message: Optional[str] = None
-            if ibm_bob_client.is_configured and result_status != "NOT_FOUND":
+            # 7. Response Synthesis via IBM Bob API (when configured, not pre-formatted, and not OUT_OF_DOMAIN / NOT_FOUND)
+            if not formatted_message and ibm_bob_client.is_configured and result_status not in ("NOT_FOUND", "OUT_OF_DOMAIN"):
                 history_dicts = [{"role": h.role, "content": h.content} for h in request.history]
                 context_block = f"RETRIEVED_DATABASE_CONTEXT:\n{retrieved_context}" if retrieved_context else ""
                 
@@ -1301,45 +1387,29 @@ class ChatService:
                     formatted_message = retrieved_context
                 elif request.history:
                     _, followup_md, _ = self._handle_conversational_followup(db, message, request.history, primary_asset_code)
-                    formatted_message = followup_md
+                    formatted_message = followup_md if followup_md else (
+                        "### ⚠️ SentinelAI Operational Scope Notice\n\n"
+                        "I am **SentinelAI**, an operational AI copilot dedicated **exclusively** to the "
+                        "**SentinelAI Defense Mission Readiness & Predictive Maintenance Platform**.\n\n"
+                        "I cannot answer general knowledge, jokes, weather, or queries unrelated to this platform.\n\n"
+                        "**How I can assist your fleet operations:**\n"
+                        "- Check fleet readiness or mission deployability\n"
+                        "- Diagnose degraded platforms (e.g. `A021`)\n"
+                        "- Review highest failure probability components\n"
+                        "- Inspect telemetry sensor readings and anomalies"
+                    )
                 else:
-                    msg_lower = message.lower()
-                    if any(w in msg_lower for w in ["capital", "france", "paris"]):
-                        formatted_message = (
-                            "The capital of France is **Paris**.\n\n"
-                            "While I'm happy to help with general questions, my primary mission is assisting you with **SentinelAI fleet operations**, "
-                            "failure predictions, sensor anomalies, and maintenance readiness. How can I assist with the fleet today?"
-                        )
-                    elif any(w in msg_lower for w in ["joke", "funny"]):
-                        formatted_message = (
-                            "Why did the tactical drone get sent to depot maintenance?\n\n"
-                            "*Because its telemetry was running on high vibration and low caffeine!*\n\n"
-                            "Let me know if you'd like to check actual asset health or sensor diagnostics!"
-                        )
-                    elif any(w in msg_lower for w in ["game", "python"]):
-                        formatted_message = (
-                            "Here is a quick Python text game snippet:\n\n"
-                            "```python\n"
-                            "import random\n"
-                            "target = random.randint(1, 10)\n"
-                            "guess = int(input('Guess a number between 1 and 10: '))\n"
-                            "print('Target hit!' if guess == target else f'Missed! Target was {target}')\n"
-                            "```\n\n"
-                            "If you need AI or telemetry algorithms for SentinelAI predictive maintenance, I can help analyze that too."
-                        )
-                    elif any(w in msg_lower for w in ["hello", "hi", "hey"]):
-                        formatted_message = (
-                            "Hello! I am your **SentinelAI Assistant**.\n\n"
-                            "I can help you monitor fleet mission readiness, predict component failures up to 50 hours ahead, "
-                            "trace telemetry anomalies, review maintenance history, and navigate the SentinelAI platform. What would you like to explore?"
-                        )
-                    else:
-                        formatted_message = (
-                            f"I understand your inquiry: *\"{message}\"*.\n\n"
-                            "As the **SentinelAI Tactical Assistant**, I specialize in defense fleet readiness, mechanical failure predictions, "
-                            "sensor telemetry diagnostics, and platform navigation. "
-                            "Feel free to ask about specific assets (e.g. `A021`), degraded vehicles, recent anomalies, or where to find system reports."
-                        )
+                    formatted_message = (
+                        "### ⚠️ SentinelAI Operational Scope Notice\n\n"
+                        "I am **SentinelAI**, an operational AI copilot dedicated **exclusively** to the "
+                        "**SentinelAI Defense Mission Readiness & Predictive Maintenance Platform**.\n\n"
+                        "I cannot answer general knowledge, jokes, weather, or queries unrelated to this platform.\n\n"
+                        "**How I can assist your fleet operations:**\n"
+                        "- Check fleet readiness or mission deployability\n"
+                        "- Diagnose degraded platforms (e.g. `A021`)\n"
+                        "- Review highest failure probability components\n"
+                        "- Inspect telemetry sensor readings and anomalies"
+                    )
 
             # 9. Generate dynamic context-aware suggestions
             dynamic_suggestions = self._generate_dynamic_suggestions(
