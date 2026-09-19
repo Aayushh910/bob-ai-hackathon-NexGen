@@ -1,16 +1,33 @@
-# React + Vite
+# SentinelAI Frontend Console
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Enterprise defense web console for SentinelAI Mission Readiness and Operational Copilot.
 
-Currently, two official plugins are available:
+## Core Features
+- **Executive Command Dashboard**: Real-time fleet readiness indices, composite risk ranking, and operational status queues.
+- **Command Copilot**: Natural-language conversational interface supporting free-form commander inquests, entity drill-downs, and evidence-grounded answers.
+- **Fleet Asset Inventory**: Detailed platform status cards with subsystem diagnostics (`READY`, `CAUTION`, `DEGRADED`, `NOT_READY`).
+- **Telemetry & Sensor Monitoring**: Multi-channel HUMS telemetry inspection (vibration, temperature, pressures, RPM, voltage) with interactive anomaly indicators.
+- **Predictive Maintenance Center**: Prioritized intervention schedules and one-click closed-loop reassessment verification.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Tech Stack
+- **Framework**: React 19 + Vite 8
+- **Icons**: Lucide React
+- **Linter & Tools**: Oxlint
+- **Styling**: Modern Tactical UI with responsive dark theme
 
-## React Compiler
+## Quick Start
+```powershell
+# Install dependencies
+npm install
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+# Start local development server
+npm run dev
+```
 
-## Expanding the Oxlint configuration
+The application will be available at `http://localhost:5173`.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Production Build
+```powershell
+npm run build
+npm run preview
+```

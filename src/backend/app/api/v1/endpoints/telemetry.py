@@ -21,7 +21,7 @@ router = APIRouter()
     description="Retrieve paginated sensor telemetry across fleet assets with optional time-range filtering."
 )
 def list_telemetry(
-    asset_id: Optional[int] = Query(None, description="Filter by Asset ID"),
+    asset_id: Optional[str] = Query(None, description="Filter by Asset ID or code (e.g. 'A001')"),
     start_time: Optional[datetime] = Query(None, description="Start timestamp filter (ISO 8601)"),
     end_time: Optional[datetime] = Query(None, description="End timestamp filter (ISO 8601)"),
     skip: int = Query(0, ge=0, description="Offset for pagination"),

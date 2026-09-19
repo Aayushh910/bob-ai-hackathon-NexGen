@@ -23,4 +23,10 @@ services:
         value: "https://.*\\.(vercel\\.app|onrender\\.com|netlify\\.app|pages\\.dev)"
       - key: CORS_ORIGINS
         value: "http://localhost:3000,http://localhost:5173,https://sentinel-ai-ibm-bob.vercel.app"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: "openai/gpt-oss-120b"
+      - key: IBM_BOB_API_KEY
+        sync: false
 

@@ -15,7 +15,8 @@ SentinelAI is an enterprise-grade AI copilot and command intelligence system tha
 ┌────────────────────────────────────────▼─────────────────────────────────────────┐
 │                             FASTAPI BACKEND API                                  │
 │   ├── /command       : Executive Fleet KPIs, Risk Ranking, Attention Queue       │
-│   ├── /copilot       : Deterministic Natural Language Copilot & Grounded Evidence│
+│   ├── /copilot       : Natural-Language Paraphrase Copilot & Grounded Evidence   │
+│   │                    (Semantic Vector Cosine Classifier + Groq / Bob Few-Shot) │
 │   ├── /readiness     : Multi-Factor Readiness Assessment Engine (4-Tier)         │
 │   ├── /maintenance   : Intervention Prioritization & Reassessment Lifecycle      │
 │   ├── /ml            : Model Status, Real-Time Prediction & RUL Estimation       │
@@ -68,7 +69,7 @@ To ensure enterprise stability and prevent runtime degradation:
    - **`NOT_READY`**: Critical risk, failure prob $\ge 0.75$, RUL $< 15$h, or severe subsystem failure. Asset grounded.
 5. **Predictive Maintenance Planning**: The `MaintenancePlanningEngine` identifies affected components, calculates urgency (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`), and compiles deduplicated intervention plans.
 6. **Command Intelligence Synthesis**: Aggregates fleet KPIs, composite risk scores (0–105 scale), and prioritizes the Command Attention Queue.
-7. **Operational Copilot**: Translates natural commander questions into structured, evidence-grounded responses.
+7. **Operational Copilot**: Translates natural commander questions into structured, evidence-grounded responses using semantic paraphrase understanding (handles typos, abbreviations like FMC/NMC/RUL/HUMS, entity notations like `Platform 21`, and contextual follow-ups like `"Why is it down?"`) with zero keyword gates.
 8. **Maintenance & Reassessment**: Upon completing maintenance, a fresh assessment is executed to determine updated readiness based strictly on post-service evidence.
 
 ---
@@ -144,7 +145,13 @@ To demonstrate the full operational lifecycle during evaluation:
 
 ## 6. Verification & Automated Testing
 
-Run the full pytest suite (45/45 passing):
+Run the natural-language paraphrase copilot test suite (154/154 passing):
+```powershell
+cd src/backend
+.\venv\Scripts\pytest.exe tests\test_copilot_paraphrase.py -v
+```
+
+Run the full pytest suite:
 ```powershell
 cd src/backend
 .\venv\Scripts\pytest.exe

@@ -511,7 +511,8 @@ class OperationalCopilotEngine:
 
     def _handle_trends(self, db: Session, query: str, intent: str, conf: float, now: datetime) -> CopilotResponse:
         total_trends = db.execute(text("SELECT count(*) FROM trend_analysis")).scalar()
-        ans = f"Continuous 4-signal trend evaluations are active across {total_assets_count := db.query(Asset).count()} assets ({total_trends} historical evaluation records). Telemetry rates of change and degradation persistence are tracked continuously."
+        total_assets_count = db.query(Asset).count()
+        ans = f"Continuous 4-signal trend evaluations are active across {total_assets_count} assets ({total_trends} historical evaluation records). Telemetry rates of change and degradation persistence are tracked continuously."
         evidence = [
             EvidenceItem(source="TREND_ENGINE", metric="trend_records_analyzed", value=total_trends, explanation="Evaluated multi-sensor trend records in PostgreSQL trend_analysis table.")
         ]
