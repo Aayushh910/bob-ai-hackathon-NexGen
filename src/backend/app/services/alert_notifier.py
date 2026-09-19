@@ -417,7 +417,7 @@ DISPATCHED VIA SENTINELAI TACTICAL CORE NODE-01
         utc_now = datetime.now(timezone.utc)
         date_str = utc_now.strftime("%d %b %Y")
         time_str = utc_now.strftime("%H:%M:%S UTC")
-        subject = f"[REPORT] SentinelAI 24-Hour Fleet Readiness & Anomaly Summary — {date_str} {time_str}"
+        subject = f"[REPORT] SentinelAI 24-Hour Fleet Readiness & Anomaly Summary"
 
         total_assets = summary_metrics.get("total_assets", 53)
         readiness_rate = summary_metrics.get("readiness_rate", 87.5)
